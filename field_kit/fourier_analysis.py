@@ -120,24 +120,25 @@ class FourierAnalysis:
         kkd = np.sqrt((kd * np.conj(kd)).sum(axis=0))
         return kd, kkd
 
-    def divergence_component(self, datax, datay, dataz=None):
+    def divergence_component(self, datax, datay, dataz=None, diff_type="central"):
         if not isinstance(datax, FFTArray):
             datax = self.fftn(datax)
         self._check_data(datax)
         if not isinstance(datay, FFTArray):
             datay = self.fftn(datay)
         self._check_data(datay)
-        kdata = self.kx * datax + self.ky * datay
+        kd, kkd = self.generate_fd_wvs(diff_type)
+        kdata = kd[0] * datax + kd[1] * datay
         if dataz is not None:
             if not isinstance(dataz, FFTArray):
                 dataz = self.fftn(dataz)
             self._check_data(dataz)
-            kdata += self.kz * dataz
-        kdata /= self._kk
+            kdata += kd[2] * dataz
+        kdata /= kkd
         if dataz is None:
-            return self.kx * kdata, self.ky * kdata
+            return kd[0] * kdata, kd[1] * kdata
         else:
-            return self.kx * kdata, self.ky * kdata, self.kz * kdata
+            return kd[0] * kdata, kd[1] * kdata, kd[2] * kdata
 
     def make_powerspec(self, data, nbins):
         if not isinstance(data, FFTArray):
