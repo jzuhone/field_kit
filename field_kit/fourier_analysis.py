@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.fft import fftfreq, fftshift, fftn
+from scipy.fft import fftfreq, fftshift, fftn, ifftn
 
 
 def window_data(data, filter_function="tukey", **kwargs):
@@ -34,10 +34,14 @@ def window_data(data, filter_function="tukey", **kwargs):
 
 
 class FFTArray:
-    def __init__(self, x, delta, **kwargs):
-        self.x = fftn(x, **kwargs)
+    def __init__(self, x, delta):
+        self.x = x
         self.shape = x.shape
         self.delta = delta
+
+    @classmethod
+    def via_fft(cls, x, delta, axes=None, **kwargs):
+        return cls(fftn(x, axes=axes, **kwargs), delta)
 
     def __array__(self, dtype=None, copy=None):
         return self.x
@@ -91,22 +95,41 @@ class FourierAnalysis:
         return self._kmag
 
     def _check_data(self, data):
-        if data.shape != self.shape[1:]:
+        if len(data.shape) == self.ndims+1:
+            self_shape = self.shape
+        elif len(data.shape) == self.ndims:
+            self_shape = self.shape[1:]
+        else:
+            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+        if data.shape != self_shape:
             raise ValueError(
                 "Incompatible array shape for this FourierAnalysis instance!"
             )
-        if not np.isclose(data.delta, self.delta).all():
-            raise ValueError(
-                "Incompatible cell spacing for this FourierAnalysis instance!"
-            )
+        if hasattr(data, "delta"):
+            if not np.isclose(data.delta, self.delta).all():
+                raise ValueError(
+                    "Incompatible cell spacing for this FourierAnalysis instance!"
+                )
 
     def fftn(self, x, **kwargs):
-        if x.shape != self.shape[1:]:
-            raise ValueError(
-                "Incompatible array shape for this FourierAnalysis instance!"
-            )
-        return FFTArray(x, self.delta, **kwargs)
+        x = np.asarray(x)
+        self._check_data(x)
+        if len(x.shape) == self.ndims+1:
+            axes = tuple(range(1, self.ndims+1))
+        else:
+            axes = None
+        return FFTArray.via_fft(x, self.delta, axes=axes, **kwargs)
 
+    def ifftn(self, x, **kwargs):
+        if not isinstance(x, FFTArray):
+            raise TypeError("Input must be an FFTArray!")
+        self._check_data(x)
+        if len(x.shape) == self.ndims+1:
+            axes = tuple(range(1, self.ndims+1))
+        else:
+            axes = None
+        return ifftn(x, axes=axes, **kwargs).real
+        
     def generate_fd_wvs(self, diff_type):
         if diff_type == "central":
             diff_func = lambda k, dx: np.sin(2.0 * np.pi * k * dx) / dx
@@ -115,35 +138,26 @@ class FourierAnalysis:
         else:
             raise NotImplementedError()
         kd = diff_func(
-            self.kmag, np.expand_dims(self.delta, axis=tuple(range(1, self.ndims + 1)))
+            self.kvec, np.expand_dims(self.delta, axis=tuple(range(1, self.ndims + 1)))
         )
         kkd = np.sqrt((kd * np.conj(kd)).sum(axis=0))
         return kd, kkd
 
-    def divergence_component(self, datax, datay, dataz=None, diff_type="central"):
-        if not isinstance(datax, FFTArray):
-            datax = self.fftn(datax)
-        self._check_data(datax)
-        if not isinstance(datay, FFTArray):
-            datay = self.fftn(datay)
-        self._check_data(datay)
-        kd, kkd = self.generate_fd_wvs(diff_type)
-        kdata = kd[0] * datax + kd[1] * datay
-        if dataz is not None:
-            if not isinstance(dataz, FFTArray):
-                dataz = self.fftn(dataz)
-            self._check_data(dataz)
-            kdata += kd[2] * dataz
-        kdata /= kkd
-        if dataz is None:
-            return kd[0] * kdata, kd[1] * kdata
+    def divergence_component(self, data_vec, diff_type="central"):
+        if not isinstance(data_vec, FFTArray):
+            data_vec = self.fftn(data_vec)
         else:
-            return kd[0] * kdata, kd[1] * kdata, kd[2] * kdata
+            self._check_data(data_vec)
+        kd, kkd = self.generate_fd_wvs(diff_type)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            data_vec = np.nan_to_num(kd*np.sum(kd * data_vec, axis=0)/(kkd*kkd))
+        return FFTArray(data_vec, self.delta)
 
     def make_powerspec(self, data, nbins):
         if not isinstance(data, FFTArray):
             data = self.fftn(data)
-        self._check_data(data)
+        else:
+            self._check_data(data)
 
         P = np.abs(np.prod(self.delta) * fftshift(data)) ** 2 / np.prod(self.width)
 
