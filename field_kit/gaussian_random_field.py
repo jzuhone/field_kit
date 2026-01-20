@@ -4,6 +4,7 @@
 
 import numpy as np
 from numba import njit, prange
+from scipy.fft import fftfreq
 
 
 sqrt2 = 2.0**0.5
@@ -135,17 +136,11 @@ def make_gaussian_random_field(
     else:
         dx, dy, dz = deltas
         nx, ny, nz = ddims
-    kx = np.arange(nx, dtype="float64")
-    kx[kx > nx // 2] = kx[kx > nx // 2] - nx
-    kx /= nx * dx    
+    kx = fftfreq(nx, d=dx)
     if ndim > 1:
-        ky = np.arange(ny, dtype="float64")
-        ky[ky > ny // 2] = ky[ky > ny // 2] - ny
-        ky /= ny * dy
+        ky = fftfreq(ny, d=dy)
     if ndim == 3:
-        kz = np.arange(nz, dtype="float64")
-        kz[kz > nz // 2] = kz[kz > nz // 2] - nz
-        kz /= nz * dz
+        kz = fftfreq(nz, d=dz)
 
     pspec = make_jit_power_spec(power_spec)
 
@@ -174,5 +169,5 @@ def make_gaussian_random_field(
         v = enforce_hermitian_symmetry_3d(v)
 
     v = np.fft.ifftn(v, norm="forward")
-
+    
     return v.real
