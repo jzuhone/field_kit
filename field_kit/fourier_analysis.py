@@ -43,6 +43,9 @@ class FFTArray:
     def via_fft(cls, x, delta, axes=None, **kwargs):
         return cls(fftn(x, axes=axes, **kwargs), delta)
 
+    def __getitem__(self, i):
+        return self.x[i]
+
     def __array__(self, dtype=None, copy=None):
         return self.x
 
