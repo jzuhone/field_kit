@@ -146,15 +146,26 @@ class FourierAnalysis:
         kkd = np.sqrt((kd * np.conj(kd)).sum(axis=0))
         return kd, kkd
 
-    def divergence_component(self, data_vec, diff_type="central"):
+    def divergence_component(self, data_vec, diff_type="central", ret_fft=False):
         if not isinstance(data_vec, FFTArray):
             data_vec = self.fftn(data_vec)
         else:
             self._check_data(data_vec)
         kd, kkd = self.generate_fd_wvs(diff_type)
         with np.errstate(divide="ignore", invalid="ignore"):
-            data_vec = np.nan_to_num(kd*np.sum(kd * data_vec, axis=0)/(kkd*kkd))
-        return FFTArray(data_vec, self.delta)
+            ret = kd*np.sum(kd * data_vec.x, axis=0)/(kkd*kkd)
+        np.nan_to_num(ret, copy=False)
+        if ret_fft:
+            return FFTArray(ret, self.delta)
+        else:
+            return ifftn(ret, axes=tuple(range(1, self.ndims+1))).real
+    
+    def solenoidal_component(self, data_vec, diff_type="central", ret_fft=False):
+        xc = self.divergence_component(data_vec, diff_type=diff_type, ret_fft=ret_fft)
+        if ret_fft:
+            return self.fftn(data_vec) - xc
+        else:
+            return data_vec - xc
 
     def make_powerspec(self, data, nbins):
         if not isinstance(data, FFTArray):
