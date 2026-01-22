@@ -140,36 +140,38 @@ class FourierAnalysis:
             axes = None
         return ifftn(np.array(x), axes=axes, **kwargs).real
         
-    def generate_fd_wvs(self, diff_type):
-        if diff_type == "central":
+    def generate_waves(self, diff_type):
+        if diff_type == "continuum":
+            return self.kvec, self.kmag
+        elif diff_type == "central":
             diff_func = lambda k, dx: np.sin(2.0 * np.pi * k * dx) / dx
         elif diff_type == "forward":
             diff_func = lambda k, dx: -1j * np.exp(2.0 * np.pi * 1j * k * dx - 1.0) / dx
         else:
             raise NotImplementedError()
-        kd = diff_func(
+        k = diff_func(
             self.kvec, np.expand_dims(self.delta, axis=tuple(range(1, self.ndims + 1)))
         )
-        kkd = np.sqrt((kd * np.conj(kd)).sum(axis=0))
-        return kd, kkd
+        kmag = np.sqrt((k * np.conj(k)).sum(axis=0))
+        return k, kmag
 
-    def divergence_component(self, data_vec, diff_type="central", ret_fft=False):
+    def divergence_component(self, data_vec, diff_type="central", return_fft=False):
         if not isinstance(data_vec, FFTArray):
             data_vec = self.fftn(data_vec)
         else:
             self._check_data(data_vec)
-        kd, kkd = self.generate_fd_wvs(diff_type)
+        k, kmag = self.generate_waves(diff_type)
         with np.errstate(divide="ignore", invalid="ignore"):
-            ret = kd*np.sum(kd * data_vec.x, axis=0)/(kkd*kkd)
+            ret = k*np.sum(k * data_vec, axis=0)/(kmag*kmag)
         np.nan_to_num(ret, copy=False)
-        if ret_fft:
-            return FFTArray(ret, self.delta)
+        if return_fft:
+            return ret
         else:
             return ifftn(ret, axes=tuple(range(1, self.ndims+1))).real
     
-    def solenoidal_component(self, data_vec, diff_type="central", ret_fft=False):
-        xc = self.divergence_component(data_vec, diff_type=diff_type, ret_fft=ret_fft)
-        if ret_fft:
+    def solenoidal_component(self, data_vec, diff_type="central", return_fft=False):
+        xc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=return_fft)
+        if return_fft:
             return self.fftn(data_vec) - xc
         else:
             return data_vec - xc
