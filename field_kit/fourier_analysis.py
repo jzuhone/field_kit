@@ -58,6 +58,7 @@ class FourierAnalysis:
         self.width = np.atleast_1d(width)
         self.ddims = np.atleast_1d(ddims).astype("int")
         self.delta = self.width / self.ddims
+        self.dV = np.prod(self.delta)
         self.ndim = self.ddims.size
         self.shape = tuple(np.insert(self.ddims, 0, self.ndim))
 
@@ -182,7 +183,7 @@ class FourierAnalysis:
         else:
             self._check_data(data)
 
-        P = np.abs(np.prod(self.delta) * fftshift(data)) ** 2 / np.prod(self.width)
+        P = np.abs(self.dV * fftshift(data)) ** 2 / np.prod(self.width)
 
         # Set the maximum and minimum limits on the wavenumber bins
 
