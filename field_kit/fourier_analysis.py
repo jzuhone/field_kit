@@ -190,11 +190,11 @@ class FourierAnalysis:
         # Bin up the gridded power spectrum into a 1-D power spectrum
 
         kbins = np.logspace(np.log10(kmin), np.log10(kmax), nbins)
-        k = np.sqrt(kbins[1:] * kbins[:-1])
+        kmid = np.sqrt(kbins[1:] * kbins[:-1])
         with np.errstate(divide="ignore", invalid="ignore"):
             Pk = (
                 np.histogram(self.kmag, kbins, weights=P)[0]
                 / np.histogram(self.kmag, kbins)[0]
             )
 
-        return k[Pk > 0], Pk[Pk > 0]
+        return kmid[Pk > 0], Pk[Pk > 0]
