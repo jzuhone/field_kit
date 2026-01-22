@@ -58,16 +58,16 @@ class FourierAnalysis:
         self.width = np.atleast_1d(width)
         self.ddims = np.atleast_1d(ddims).astype("int")
         self.delta = self.width / self.ddims
-        self.ndims = self.ddims.size
-        self.shape = tuple(np.insert(self.ddims, 0, self.ndims))
+        self.ndim = self.ddims.size
+        self.shape = tuple(np.insert(self.ddims, 0, self.ndim))
 
     def _make_wavenumbers(self):
         # Shift the wavenumbers so that the zero is at the center
         # of the transformed image and compute the grid
         kvec = [fftshift(fftfreq(self.ddims[0], d=self.delta[0]))]
-        if self.ndims > 1:
+        if self.ndim > 1:
             kvec.append(fftshift(fftfreq(self.ddims[1], d=self.delta[1])))
-        if self.ndims > 2:
+        if self.ndim > 2:
             kvec.append(fftshift(fftfreq(self.ddims[2], d=self.delta[2])))
         self._kvec = np.array(np.meshgrid(*kvec, indexing="ij"))
         self._kk = (self._kvec**2).sum(axis=0)
@@ -105,9 +105,9 @@ class FourierAnalysis:
         return np.nan_to_num(self._kvec/self._kmag)
 
     def _check_data(self, data):
-        if len(data.shape) == self.ndims+1:
+        if len(data.shape) == self.ndim+1:
             self_shape = self.shape
-        elif len(data.shape) == self.ndims:
+        elif len(data.shape) == self.ndim:
             self_shape = self.shape[1:]
         else:
             raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
@@ -124,8 +124,8 @@ class FourierAnalysis:
     def fftn(self, x, **kwargs):
         x = np.asarray(x)
         self._check_data(x)
-        if len(x.shape) == self.ndims+1:
-            axes = tuple(range(1, self.ndims+1))
+        if len(x.shape) == self.ndim+1:
+            axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
         return FFTArray(fftn(x, axes=axes, **kwargs), delta=self.delta)
@@ -134,8 +134,8 @@ class FourierAnalysis:
         if not isinstance(x, FFTArray):
             raise TypeError("Input must be an FFTArray!")
         self._check_data(x)
-        if len(x.shape) == self.ndims+1:
-            axes = tuple(range(1, self.ndims+1))
+        if len(x.shape) == self.ndim+1:
+            axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
         return ifftn(np.array(x), axes=axes, **kwargs).real
@@ -150,7 +150,7 @@ class FourierAnalysis:
         else:
             raise NotImplementedError()
         k = diff_func(
-            self.kvec, np.expand_dims(self.delta, axis=tuple(range(1, self.ndims + 1)))
+            self.kvec, np.expand_dims(self.delta, axis=tuple(range(1, self.ndim + 1)))
         )
         kmag = np.sqrt((k * np.conj(k)).sum(axis=0))
         return k, kmag
@@ -167,7 +167,7 @@ class FourierAnalysis:
         if return_fft:
             return ret
         else:
-            return ifftn(ret, axes=tuple(range(1, self.ndims+1))).real
+            return ifftn(ret, axes=tuple(range(1, self.ndim+1))).real
     
     def solenoidal_component(self, data_vec, diff_type="central", return_fft=False):
         xc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=return_fft)
