@@ -170,12 +170,33 @@ class FourierAnalysis:
         else:
             return ifftn(ret, axes=tuple(range(1, self.ndim+1))).real
     
-    def solenoidal_component(self, data_vec, diff_type="central", return_fft=False):
-        xc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=return_fft)
-        if return_fft:
-            return self.fftn(data_vec) - xc
-        else:
-            return data_vec - xc
+    def divergence_of_field(self, data_vec):
+        if data_vec.shape != self.shape:
+            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+        div = np.gradient(data_vec[0], self.delta[0], axis=0, edge_order=2)
+        if self.ndim > 1:
+            div += np.gradient(data_vec[1], self.delta[1], axis=1, edge_order=2)
+        if self.ndim == 3:
+            div += np.gradient(data_vec[2], self.delta[2], axis=2, edge_order=2)
+        return div
+
+    def curl_of_field(self, data_vec):
+        if data_vec.shape != self.shape:
+            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+        if self.ndim == 1:
+            raise NotImplementedError("You cannot compute the curl in one dimension!")
+        curl = np.empty_like(data_vec)
+        dvydx = np.gradient(data_vec[1], self.delta[0], axis=0, edge_order=2)
+        dvxdy = np.gradient(data_vec[0], self.delta[1], axis=1, edge_order=2)
+        curl[2] = dvydx - dvxdy
+        if self.ndim == 3:
+            dvzdy = np.gradient(data_vec[2], self.delta[1], axis=1, edge_order=2)
+            dvydz = np.gradient(data_vec[1], self.delta[2], axis=2, edge_order=2)
+            curl[0] = dvzdy - dvydz
+            dvxdz = np.gradient(data_vec[0], self.delta[2], axis=2, edge_order=2)
+            dvzdx = np.gradient(data_vec[2], self.delta[0], axis=0, edge_order=2)
+            curl[1] = dvxdz - dvzdx
+        return curl
 
     def make_powerspec(self, data, nbins):
         if not isinstance(data, FFTArray):
