@@ -111,7 +111,7 @@ class GaussianRandomField:
         The upper edge of the box [kpc] for each of the dimensions.
     ddims : array-like
         The number of grids in each of the axes.
-    power_spec : callable
+    power_spec : PowerSpectrum object
         The power spectrum function for the field.
     seed : int, optional
         Random seed for reproducibility.
@@ -147,9 +147,9 @@ class GaussianRandomField:
         sigma /= np.sqrt(np.prod(self.width))
         self.sigma = sigma
 
-    def generate_field_realization(self):
+    def generate_scalar_field_realization(self):
         """
-        Generate a realization of the random field.
+        Generate a random realization of the field as a scalar field.
         """
 
         if self.sigma is None:
@@ -171,3 +171,13 @@ class GaussianRandomField:
         v = np.fft.ifftn(v, norm="forward")
 
         return v.real
+
+    def generate_vector_field_realization(self):
+        """
+        Generate a random realization of the field as a vector field.
+        """
+
+        field = []
+        for i in range(self.ndim):
+            field.append(self.generate_scalar_field_realization())
+        return np.asarray(field)
