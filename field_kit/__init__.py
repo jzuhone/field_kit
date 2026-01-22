@@ -1,3 +1,3 @@
 from field_kit.fourier_analysis import FourierAnalysis, window_data
-from field_kit.gaussian_random_field import make_gaussian_random_field
+from field_kit.gaussian_random_field import GaussianRandomField
 from field_kit.power_spectra import plaw_with_cutoffs, PowerSpectrum

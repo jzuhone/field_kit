@@ -20,7 +20,7 @@ def make_jit_power_spec(power_spec, **njit_kwargs):
 
 
 @njit(parallel=True, fastmath=True)
-def compute_pspec_1d(kx, nx, power_spec):
+def compute_sigma_1d(kx, nx, power_spec):
     sigma = np.zeros(nx)
 
     for i in prange(nx):
@@ -32,7 +32,7 @@ def compute_pspec_1d(kx, nx, power_spec):
     return sigma
 
 @njit(parallel=True, fastmath=True)
-def compute_pspec_2d(kx, ky, nx, ny, power_spec):
+def compute_sigma_2d(kx, ky, nx, ny, power_spec):
     sigma = np.zeros((nx, ny))
 
     for i in prange(nx):
@@ -47,7 +47,7 @@ def compute_pspec_2d(kx, ky, nx, ny, power_spec):
 
 
 @njit(parallel=True, fastmath=True)
-def compute_pspec_3d(kx, ky, kz, nx, ny, nz, power_spec):
+def compute_sigma_3d(kx, ky, kz, nx, ny, nz, power_spec):
     sigma = np.zeros((nx, ny, nz))
 
     for i in prange(nx):
@@ -101,9 +101,7 @@ def enforce_hermitian_symmetry_3d(f_hat):
     return f_hat
 
 
-def make_gaussian_random_field(
-    left_edge, right_edge, ddims, power_spec, seed=None
-):
+class GaussianRandomField:
     """
     Parameters
     ----------
@@ -118,56 +116,54 @@ def make_gaussian_random_field(
     seed : int, optional
         Random seed for reproducibility.
     """
+    def __init__(self, left_edge, right_edge, ddims, power_spec, seed=None):
+        self.left_edge = np.atleast_1d(left_edge).astype("float64")
+        self.right_edge = np.atleast_1d(right_edge).astype("float64")
+        self.ddims = np.atleast_1d(ddims).astype("int")
+        self.width = self.right_edge - self.left_edge
+        self.deltas = self.width / self.ddims
+        self.ndim = self.left_edge.size
+        self.kx = fftfreq(self.ddims[0], d=self.deltas[0])
+        if self.ndim > 1:
+            self.ky = fftfreq(self.ddims[1], d=self.deltas[1])
+        if self.ndim == 3:
+            self.kz = fftfreq(self.ddims[2], d=self.deltas[2])
 
-    prng = np.random.default_rng(seed=seed)
+        self.pspec = make_jit_power_spec(power_spec)
+        self.sigma = None
+        self.prng = np.random.default_rng(seed=seed)
 
-    left_edge = np.atleast_1d(left_edge).astype("float64")
-    right_edge = np.atleast_1d(right_edge).astype("float64")
-    ddims = np.atleast_1d(ddims).astype("int")
-    width = right_edge - left_edge
-    deltas = width / ddims
-    ndim = left_edge.size
-    if ndim == 1:
-        dx = deltas[0]
-        nx = ddims[0]
-    elif ndim == 2:
-        dx, dy = deltas
-        nx, ny = ddims
-    else:
-        dx, dy, dz = deltas
-        nx, ny, nz = ddims
-    kx = fftfreq(nx, d=dx)
-    if ndim > 1:
-        ky = fftfreq(ny, d=dy)
-    if ndim == 3:
-        kz = fftfreq(nz, d=dz)
+    def _compute_sigma(self):
+        if self.ndim == 1:
+            sigma = compute_sigma_1d(self.kx, self.ddims[0], self.pspec)
+        elif self.ndim == 2:
+            sigma = compute_sigma_2d(self.kx, self.ky, self.ddims[0], self.ddims[1], self.pspec)
+        else:
+            sigma = compute_sigma_3d(self.kx, self.ky, self.kz, self.ddims[0], self.ddims[1], self.ddims[2], self.pspec)
+        sigma /= np.sqrt(np.prod(self.width))
+        self.sigma = sigma
 
-    pspec = make_jit_power_spec(power_spec)
+    def generate_field_realization(self):
+        """
+        Generate a realization of the random field.
+        """
 
-    v_real = prng.normal(size=ddims)
-    v_imag = prng.normal(size=ddims)
-        
-    if ndim == 1:
-        sigma = compute_pspec_1d(kx, nx, pspec)
-    elif ndim == 2:
-        sigma = compute_pspec_2d(kx, ky, nx, ny, pspec)
-    else:
-        sigma = compute_pspec_3d(kx, ky, kz, nx, ny, nz, pspec) 
-    sigma /= np.sqrt(np.prod(width))
-    
-    v_real *= sigma
-    v_imag *= sigma
+        if self.sigma is None:
+            self._compute_sigma()
 
-    v = v_real + 1j * v_imag
-    v /= sqrt2
+        v_real = self.prng.normal(size=self.ddims)*self.sigma
+        v_imag = self.prng.normal(size=self.ddims)*self.sigma
 
-    if ndim == 1:
-        v = enforce_hermitian_symmetry_1d(v)
-    elif ndim == 2:
-        v = enforce_hermitian_symmetry_2d(v)
-    else:
-        v = enforce_hermitian_symmetry_3d(v)
+        v = v_real + 1j * v_imag
+        v /= sqrt2
 
-    v = np.fft.ifftn(v, norm="forward")
-    
-    return v.real
+        if self.ndim == 1:
+            v = enforce_hermitian_symmetry_1d(v)
+        elif self.ndim == 2:
+            v = enforce_hermitian_symmetry_2d(v)
+        else:
+            v = enforce_hermitian_symmetry_3d(v)
+
+        v = np.fft.ifftn(v, norm="forward")
+
+        return v.real
