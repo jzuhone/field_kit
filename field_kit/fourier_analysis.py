@@ -33,21 +33,24 @@ def window_data(data, filter_function="tukey", **kwargs):
         data *= window
 
 
-class FFTArray:
-    def __init__(self, x, delta):
-        self.x = x
-        self.shape = x.shape
-        self.delta = delta
+class FFTArray(np.ndarray):
 
-    @classmethod
-    def via_fft(cls, x, delta, axes=None, **kwargs):
-        return cls(fftn(x, axes=axes, **kwargs), delta)
+    def __new__(cls, input_array, delta=None):
+        # Create the standard ndarray instance
+        obj = np.asarray(input_array).view(cls)
 
-    def __getitem__(self, i):
-        return self.x[i]
+        # Attach the metadata to the new instance
+        obj.delta = delta
+        return obj
 
-    def __array__(self, dtype=None, copy=None):
-        return self.x
+    def __array_finalize__(self, obj):
+        # Standard check to see if we are being called from explicit constructor
+        if obj is None: return
+
+        # Copy properties from the parent (obj) to the child (self)
+        # We use getattr(..., None) because 'obj' might be a plain numpy array
+        # (e.g. if you do: plain_arr * custom_arr)
+        self.delta = getattr(obj, 'delta', None)
 
 
 class FourierAnalysis:
@@ -125,7 +128,7 @@ class FourierAnalysis:
             axes = tuple(range(1, self.ndims+1))
         else:
             axes = None
-        return FFTArray.via_fft(x, self.delta, axes=axes, **kwargs)
+        return FFTArray(fftn(x, axes=axes, **kwargs), delta=self.delta)
 
     def ifftn(self, x, **kwargs):
         if not isinstance(x, FFTArray):
@@ -135,7 +138,7 @@ class FourierAnalysis:
             axes = tuple(range(1, self.ndims+1))
         else:
             axes = None
-        return ifftn(x, axes=axes, **kwargs).real
+        return ifftn(np.array(x), axes=axes, **kwargs).real
         
     def generate_fd_wvs(self, diff_type):
         if diff_type == "central":
