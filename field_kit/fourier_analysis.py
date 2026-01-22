@@ -97,6 +97,10 @@ class FourierAnalysis:
             self._make_wavenumbers()
         return self._kmag
 
+    @property
+    def khat(self):
+        return np.nan_to_num(self._kvec/self._kmag)
+
     def _check_data(self, data):
         if len(data.shape) == self.ndims+1:
             self_shape = self.shape
