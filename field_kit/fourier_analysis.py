@@ -215,10 +215,9 @@ class FourierAnalysis:
 
         kbins = np.logspace(np.log10(kmin), np.log10(kmax), nbins)
         kmid = np.sqrt(kbins[1:] * kbins[:-1])
+        Pk = np.histogram(self.kmag, kbins, weights=P)[0]
+        n = np.histogram(self.kmag, kbins)[0]
         with np.errstate(divide="ignore", invalid="ignore"):
-            Pk = (
-                np.histogram(self.kmag, kbins, weights=P)[0]
-                / np.histogram(self.kmag, kbins)[0]
-            )
+            Pk /= n
 
-        return kmid[Pk > 0], Pk[Pk > 0]
+        return kmid[n > 0], Pk[n > 0]
