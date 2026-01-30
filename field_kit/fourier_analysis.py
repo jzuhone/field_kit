@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 from scipy.fft import fftfreq, fftshift, fftn, ifftn
 
 
@@ -198,26 +199,36 @@ class FourierAnalysis:
             curl[1] = dvxdz - dvzdx
         return curl
 
-    def make_powerspec(self, data, nbins):
+    def make_powerspec(self, data, bins):
         if not isinstance(data, FFTArray):
             data = self.fftn(data)
         else:
             self._check_data(data)
 
-        P = np.abs(self.dV * fftshift(data)) ** 2 / np.prod(self.width)
-
-        # Set the maximum and minimum limits on the wavenumber bins
-
-        kmin = 1.0 / self.width.max()
-        kmax = 1.0 / self.delta.min()
-
         # Bin up the gridded power spectrum into a 1-D power spectrum
-
-        kbins = np.logspace(np.log10(kmin), np.log10(kmax), nbins)
-        kmid = np.sqrt(kbins[1:] * kbins[:-1])
-        Pk = np.histogram(self.kmag, kbins, weights=P)[0]
+        if isinstance(bins, int):
+            kmin = 2.0 / self.width.max()
+            kmax = 0.5 / self.delta.min()
+            kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins+1)
+        elif isinstance(bins, np.ndarray):
+            kbins = bins
         n = np.histogram(self.kmag, kbins)[0]
+
+        if data.ndim == self.ndim+1:
+            axes = tuple(range(1, self.ndim+1))
+        else:
+            axes = None
+
+        P = np.abs(self.dV * fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
+
+        if P.ndim == self.ndim+1:
+            Pk = []
+            for Pi in P:
+                Pk.append(np.histogram(self.kmag, kbins, weights=Pi)[0])
+            Pk = np.array(Pk)
+        else:
+            Pk = np.histogram(self.kmag, kbins, weights=P)[0]
         with np.errstate(divide="ignore", invalid="ignore"):
             Pk /= n
 
-        return kmid[n > 0], Pk[n > 0]
+        return kbins, ma.masked_invalid(Pk)
