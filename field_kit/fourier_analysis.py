@@ -3,37 +3,6 @@ import numpy.ma as ma
 from scipy.fft import fftfreq, fftshift, fftn, ifftn
 
 
-def window_data(data, filter_function="tukey", **kwargs):
-    """
-    https://stackoverflow.com/questions/27345861/extending-1d-function-across-3-dimensions-for-data-windowing
-
-    Performs an in-place windowing on N-dimensional spatial-domain data.
-    This is done to mitigate boundary effects in the FFT.
-
-    Parameters
-    ----------
-    data : ndarray
-        Input data to be windowed, modified in place.
-    filter_function : str
-        Function can accept one argument: the window length, but
-        all other keyword arguments are passed to the function.
-        Default: tukey
-    """
-    import scipy.signal.windows
-
-    filter_function = getattr(scipy.signal.windows, filter_function)
-    for axis, axis_size in enumerate(data.shape):
-        # set up shape for numpy broadcasting
-        filter_shape = [
-            1,
-        ] * data.ndim
-        filter_shape[axis] = axis_size
-        window = filter_function(axis_size, **kwargs).reshape(filter_shape)
-        # scale the window intensities to maintain image intensity
-        np.power(window, (1.0 / data.ndim), out=window)
-        data *= window
-
-
 class FFTArray(np.ndarray):
 
     def __new__(cls, input_array, delta=None):
@@ -198,6 +167,40 @@ class FourierAnalysis:
             dvzdx = np.gradient(data_vec[2], self.delta[0], axis=0, edge_order=2)
             curl[1] = dvxdz - dvzdx
         return curl
+
+    def window_data(self, data, filter_function="tukey", **kwargs):
+        """
+        https://stackoverflow.com/questions/27345861/extending-1d-function-across-3-dimensions-for-data-windowing
+
+        Performs an in-place windowing on N-dimensional spatial-domain data.
+        This is done to mitigate boundary effects in the FFT.
+
+        Parameters
+        ----------
+        data : ndarray
+            Input data to be windowed, modified in place. Must be either
+            the same shape as the FourierAnalysis instance, or be a 2-D or
+            3-D vector field with the same shape
+        filter_function : str
+            Function can accept one argument: the window length, but
+            all other keyword arguments are passed to the function.
+            Default: tukey
+        """
+        import scipy.signal.windows
+
+        self._check_data(data)
+
+        filter_function = getattr(scipy.signal.windows, filter_function)
+        for axis, axis_size in enumerate(self.shape[1:]):
+            # set up shape for numpy broadcasting
+            filter_shape = [
+                               1,
+                           ] * self.ndim
+            filter_shape[axis] = axis_size
+            window = filter_function(axis_size, **kwargs).reshape(filter_shape)
+            # scale the window intensities to maintain image intensity
+            np.power(window, (1.0 / self.ndim), out=window)
+            data *= window
 
     def make_powerspec(self, data, bins):
         if not isinstance(data, FFTArray):
