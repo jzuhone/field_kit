@@ -106,9 +106,9 @@ class FourierAnalysis:
         return np.nan_to_num(self._kvec/self._kmag)
 
     def _check_data(self, data):
-        if len(data.shape) == self.ndim+1:
+        if data.ndim == self.ndim+1:
             self_shape = self.shape
-        elif len(data.shape) == self.ndim:
+        elif data.ndim == self.ndim:
             self_shape = self.shape[1:]
         else:
             raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
@@ -125,7 +125,7 @@ class FourierAnalysis:
     def fftn(self, x, **kwargs):
         x = np.asarray(x)
         self._check_data(x)
-        if len(x.shape) == self.ndim+1:
+        if x.ndim == self.ndim+1:
             axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
@@ -135,7 +135,7 @@ class FourierAnalysis:
         if not isinstance(x, FFTArray):
             raise TypeError("Input must be an FFTArray!")
         self._check_data(x)
-        if len(x.shape) == self.ndim+1:
+        if x.ndim == self.ndim+1:
             axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
