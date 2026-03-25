@@ -35,11 +35,11 @@ class FourierAnalysis:
     def _make_wavenumbers(self):
         # Shift the wavenumbers so that the zero is at the center
         # of the transformed image and compute the grid
-        kvec = [fftshift(fftfreq(self.ddims[0], d=self.delta[0]))]
+        kvec = [fftshift(2.0*np.pi*fftfreq(self.ddims[0], d=self.delta[0]))]
         if self.ndim > 1:
-            kvec.append(fftshift(fftfreq(self.ddims[1], d=self.delta[1])))
+            kvec.append(fftshift(2.0*np.pi*fftfreq(self.ddims[1], d=self.delta[1])))
         if self.ndim > 2:
-            kvec.append(fftshift(fftfreq(self.ddims[2], d=self.delta[2])))
+            kvec.append(fftshift(2.0*np.pi*fftfreq(self.ddims[2], d=self.delta[2])))
         self._kvec = np.array(np.meshgrid(*kvec, indexing="ij"))
         self._kk = (self._kvec**2).sum(axis=0)
         self._kmag = np.sqrt(self._kk)
@@ -115,9 +115,9 @@ class FourierAnalysis:
         if diff_type == "continuum":
             return self.kvec, self.kmag
         elif diff_type == "central":
-            diff_func = lambda k, dx: np.sin(2.0 * np.pi * k * dx) / dx
+            diff_func = lambda k, dx: np.sin(k * dx) / dx
         elif diff_type == "forward":
-            diff_func = lambda k, dx: -1j * np.exp(2.0 * np.pi * 1j * k * dx - 1.0) / dx
+            diff_func = lambda k, dx: -1j * np.exp(1j * k * dx - 1.0) / dx
         else:
             raise NotImplementedError()
         k = diff_func(
@@ -202,20 +202,11 @@ class FourierAnalysis:
             np.power(window, (1.0 / self.ndim), out=window)
             data *= window
 
-    def make_powerspec(self, data, bins):
+    def make_powerspec(self, data):
         if not isinstance(data, FFTArray):
             data = self.fftn(data)
         else:
             self._check_data(data)
-
-        # Bin up the gridded power spectrum into a 1-D power spectrum
-        if isinstance(bins, int):
-            kmin = 2.0 / self.width.max()
-            kmax = 0.5 / self.delta.min()
-            kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins+1)
-        elif isinstance(bins, np.ndarray):
-            kbins = bins
-        n = np.histogram(self.kmag, kbins)[0]
 
         if data.ndim == self.ndim+1:
             axes = tuple(range(1, self.ndim+1))
@@ -223,6 +214,21 @@ class FourierAnalysis:
             axes = None
 
         P = np.abs(self.dV * fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
+
+        return P
+
+    def make_binned_powerspec(self, data, bins):
+
+        P = self.make_powerspec(data)
+
+        # Bin up the gridded power spectrum into a 1-D power spectrum
+        if isinstance(bins, int):
+            kmin = 2.0*np.pi*2.0 / self.width.max()
+            kmax = 2.0*np.pi*0.5 / self.delta.min()
+            kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins+1)
+        elif isinstance(bins, np.ndarray):
+            kbins = bins
+        n = np.histogram(self.kmag, kbins)[0]
 
         if P.ndim == self.ndim+1:
             Pk = []

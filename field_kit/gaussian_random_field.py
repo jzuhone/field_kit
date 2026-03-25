@@ -127,11 +127,11 @@ class GaussianRandomField:
         self.y = np.linspace(self.left_edge[1]+0.5*self.delta[1], self.right_edge[1]-0.5*self.delta[1], self.ddims[1])
         self.z = np.linspace(self.left_edge[2]+0.5*self.delta[2], self.right_edge[2]-0.5*self.delta[2], self.ddims[2])
 
-        self.kx = fftfreq(self.ddims[0], d=self.delta[0])
+        self.kx = 2.0*np.pi*fftfreq(self.ddims[0], d=self.delta[0])
         if self.ndim > 1:
-            self.ky = fftfreq(self.ddims[1], d=self.delta[1])
+            self.ky = 2.0*np.pi*fftfreq(self.ddims[1], d=self.delta[1])
         if self.ndim == 3:
-            self.kz = fftfreq(self.ddims[2], d=self.delta[2])
+            self.kz = 2.0*np.pi*fftfreq(self.ddims[2], d=self.delta[2])
 
         self.pspec = make_jit_power_spec(power_spec)
         self.sigma = None
