@@ -5,7 +5,7 @@
 import numpy as np
 from numba import njit, prange
 from scipy.fft import fftfreq
-
+from .fourier_analysis import FFTArray
 
 sqrt2 = 2.0**0.5
 
@@ -147,7 +147,7 @@ class GaussianRandomField:
         sigma /= np.sqrt(np.prod(self.width))
         self.sigma = sigma
 
-    def generate_scalar_field_realization(self):
+    def generate_scalar_field_realization(self, fourier_space=False):
         """
         Generate a random realization of the field as a scalar field.
         """
@@ -168,16 +168,22 @@ class GaussianRandomField:
         else:
             v = enforce_hermitian_symmetry_3d(v)
 
-        v = np.fft.ifftn(v, norm="forward")
+        if fourier_space:
+            return FFTArray(v)
+        else:
+            v = np.fft.ifftn(v, norm="forward")
+            return v.real
 
-        return v.real
-
-    def generate_vector_field_realization(self):
+    def generate_vector_field_realization(self, fourier_space=False):
         """
         Generate a random realization of the field as a vector field.
         """
 
         field = []
         for i in range(self.ndim):
-            field.append(self.generate_scalar_field_realization())
-        return np.asarray(field)
+            field.append(self.generate_scalar_field_realization(fourier_space=fourier_space))
+        field = np.asarray(field)
+        if fourier_space:
+            return FFTArray(field)
+        else:
+            return field
