@@ -6,13 +6,14 @@ two_pi = 2.0*np.pi
 
 
 class PowerSpectrum:
-    def __init__(self, power_spec_func, ndim=3):
+    def __init__(self, power_spec_func, length_scale=1.0, ndim=3):
         self.func = power_spec_func
         self.norm = 1.0
         if ndim not in [1, 2, 3]:
             raise ValueError("Invalid number of dimensions! Must be 1, 2, or 3.")
         self.ndim = ndim
         self.prefactor = two_pi**ndim
+        self.length_scale = length_scale
 
     def __call__(self, k):
         return self.norm * self.func(k)
@@ -26,8 +27,11 @@ class PowerSpectrum:
             return 4.0 * np.pi * self.func(k) * k * k
 
     def renormalize(self, f_rms):
+        kmin = 0.0
+        kmax = 100.0*self.length_scale
+        points = tuple(np.array([0.1, 1.0, 10.0, 30.0]) * self.length_scale)
         self.norm = (
-            self.prefactor * f_rms**2 / quad(self.E, 0.0, 100.0, points=(0.1, 1.0, 10.0, 30.0))[0]
+            self.prefactor * f_rms**2 / quad(self.E, kmin, kmax, points=points)[0]
         )
 
 
@@ -52,4 +56,4 @@ def plaw_with_cutoffs(l_min, l_max, alpha, ndim=3):
         k_min_inv = l_min / two_pi
         return (1.0 + (k * k_max_inv) ** 2) ** (0.5 * alpha) * np.exp(-((k * k_min_inv) ** 2))
 
-    return PowerSpectrum(_pspec, ndim=ndim)
+    return PowerSpectrum(_pspec, length_scale=l_min, ndim=ndim)
