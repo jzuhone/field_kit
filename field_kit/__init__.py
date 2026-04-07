@@ -1,3 +1,3 @@
 from field_kit.fourier_analysis import FourierAnalysis
 from field_kit.gaussian_random_field import GaussianRandomField
-from field_kit.power_spectra import plaw_with_cutoffs, PowerSpectrum
+from field_kit.power_spectra import PowerSpectrum, PowerLawBetaModel

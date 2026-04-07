@@ -6,36 +6,40 @@ two_pi = 2.0*np.pi
 
 
 class PowerSpectrum:
-    def __init__(self, power_spec_func, length_scale=1.0, ndim=3):
+    def __init__(self, power_spec_func, ndim=3):
         self.func = power_spec_func
         self.norm = 1.0
         if ndim not in [1, 2, 3]:
             raise ValueError("Invalid number of dimensions! Must be 1, 2, or 3.")
         self.ndim = ndim
         self.prefactor = two_pi**ndim
-        self.length_scale = length_scale
 
     def __call__(self, k):
         return self.norm * self.func(k)
 
     def E(self, k):
         if self.ndim == 1:
-            return self.func(k)
+            e = self(k)
         elif self.ndim == 2:
-            return 2.0 * np.pi * self.func(k) * k
+            e = 2.0 * np.pi * self(k) * k
         elif self.ndim == 3:
-            return 4.0 * np.pi * self.func(k) * k * k
+            e = 4.0 * np.pi * self(k) * k * k
+        return self.prefactor * e
 
-    def renormalize(self, f_rms):
-        kmin = 0.0
-        kmax = 100.0*self.length_scale
-        points = tuple(np.array([0.1, 1.0, 10.0, 30.0]) * self.length_scale)
+    def A(self, k):
+        return np.sqrt(self.E(k)*k)
+
+    def integrate_E(self, kmin, kmax):
+        points = np.array([0.001, 0.01, 0.1, 0.3]) * (kmax - kmin) + kmin
+        return float(quad(self.E, kmin, kmax, points=points)[0])
+
+    def renormalize(self, f_rms, kmin=0.0, kmax=100.0):
         self.norm = (
-            self.prefactor * f_rms**2 / quad(self.E, kmin, kmax, points=points)[0]
+            f_rms**2 / self.integrate_E(kmin, kmax)
         )
 
 
-def plaw_with_cutoffs(l_min, l_max, alpha, ndim=3):
+class PowerLawBetaModel(PowerSpectrum):
     """
     Power-law power spectrum with exponential cutoffs at small and large scales.
 
@@ -50,10 +54,15 @@ def plaw_with_cutoffs(l_min, l_max, alpha, ndim=3):
     ndim : int, optional
         Number of dimensions (1, 2, or 3). Default is 3.
     """
+    def __init__(self, l_min, l_max, alpha, ndim=3):
 
-    def _pspec(k):
-        k_max_inv = l_max / two_pi
-        k_min_inv = l_min / two_pi
-        return (1.0 + (k * k_max_inv) ** 2) ** (0.5 * alpha) * np.exp(-((k * k_min_inv) ** 2))
+        self.l_min = l_min
+        self.l_max = l_max
+        self.k_min_i = l_min/two_pi
+        self.k_max_i = l_max/two_pi
+        self.alpha = alpha
 
-    return PowerSpectrum(_pspec, length_scale=l_min, ndim=ndim)
+        def _pspec(k):
+            return (1.0 + (k * k_max_inv) ** 2) ** (0.5 * alpha) * np.exp(-((k * k_min_i) ** 2))
+
+	super().__init__(_pspec, length_scale=l_min, ndim=ndim)
