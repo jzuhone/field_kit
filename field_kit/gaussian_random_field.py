@@ -122,6 +122,7 @@ class GaussianRandomField:
         self.ddims = np.atleast_1d(ddims).astype("int")
         self.width = self.right_edge - self.left_edge
         self.delta = self.width / self.ddims
+        self.dV = np.prod(self.delta)
         self.ndim = self.left_edge.size
         self.x = np.linspace(self.left_edge[0]+0.5*self.delta[0], self.right_edge[0]-0.5*self.delta[0], self.ddims[0])
         if self.ndim > 1:
@@ -175,7 +176,7 @@ class GaussianRandomField:
         v = self._generate_field_realization()
 
         if fourier_space:
-            return FFTArray(v)
+            return FFTArray(v*self.dV, delta=self.delta)
         else:
             v = np.fft.ifftn(v, norm="forward")
             return v.real
@@ -201,7 +202,7 @@ class GaussianRandomField:
             field *= {2: 2.0**0.5, 3: 1.5**0.5}[self.ndim] # renormalize to preserve power spectrum amplitude
 
         if fourier_space:
-            return FFTArray(field)
+            return FFTArray(field*self.dV, delta=self.delta)
         else:
             field = np.fft.ifftn(field, axes=tuple(range(1, self.ndim+1)), norm="forward")
             return field.real

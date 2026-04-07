@@ -99,7 +99,7 @@ class FourierAnalysis:
             axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
-        return FFTArray(fftn(x, axes=axes, **kwargs), delta=self.delta)
+        return FFTArray(fftn(x*self.dV, axes=axes, **kwargs), delta=self.delta)
 
     def ifftn(self, x, **kwargs):
         if not isinstance(x, FFTArray):
@@ -109,7 +109,7 @@ class FourierAnalysis:
             axes = tuple(range(1, self.ndim+1))
         else:
             axes = None
-        return ifftn(np.array(x), axes=axes, **kwargs).real
+        return ifftn(np.array(x)/self.dV, axes=axes, **kwargs).real
         
     def generate_waves(self, diff_type):
         if diff_type == "continuum":
@@ -134,11 +134,11 @@ class FourierAnalysis:
         k, kmag = self.generate_waves(diff_type)
         with np.errstate(divide="ignore", invalid="ignore"):
             ret = k*np.sum(k * data_vec, axis=0)/(kmag*kmag)
-        np.nan_to_num(ret, copy=False)
+        ret = FFTArray(np.nan_to_num(ret), delta=self.delta)
         if return_fft:
             return ret
         else:
-            return ifftn(ret, axes=tuple(range(1, self.ndim+1))).real
+            return self.ifftn(ret)
     
     def divergence_of_field(self, data_vec):
         if data_vec.shape != self.shape:
@@ -213,9 +213,9 @@ class FourierAnalysis:
         else:
             axes = None
 
-        P = np.abs(self.dV * fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
+        P = np.abs(fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
 
-        return P
+        return FFTArray(P, delta=self.delta)
 
     def make_binned_powerspec(self, data, bins):
 
