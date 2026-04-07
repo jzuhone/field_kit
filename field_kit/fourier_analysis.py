@@ -22,6 +22,42 @@ class FFTArray(np.ndarray):
         # (e.g. if you do: plain_arr * custom_arr)
         self.delta = getattr(obj, 'delta', None)
 
+    def average_symmetric_k(self, axis=None):
+        """
+        Averages the +k and -k modes of a fftshifted array along multiple axes.
+
+        Parameters:
+        arr (ndarray): The input array (fftshifted so k=0 is at N//2).
+        axes (int or tuple of ints, optional): The axes along which to fold.
+                                               If None, folds over all axes.
+
+        Returns:
+        ndarray: The symmetrically folded array.
+        """
+        # If no axes specified, fold over all of them
+        if axis is None:
+            axis = tuple(range(self.ndim))
+        # If a single integer is passed, make it a tuple
+        elif isinstance(axis, int):
+            axis = (axis,)
+
+        folded_arr = self.copy()
+
+        # Sequentially fold over each requested axis
+        for ax in axis:
+            N = folded_arr.shape[ax]
+            c = N // 2  # The index of k=0
+
+            pos_indices = np.arange(c, N)
+            neg_indices = c - np.arange(0, len(pos_indices))
+
+            pos = np.take(folded_arr, pos_indices, axis=ax)
+            neg = np.take(folded_arr, neg_indices, axis=ax)
+
+            folded_arr = 0.5 * (pos + neg)
+
+        return folded_arr
+
 
 class FourierAnalysis:
     def __init__(self, width, ddims):
@@ -240,8 +276,8 @@ class FourierAnalysis:
 
         # Bin up the gridded power spectrum into a 1-D power spectrum
         if isinstance(bins, int):
-            kmin = 2.0*np.pi*2.0 / self.width.max()
-            kmax = 2.0*np.pi*0.5 / self.delta.min()
+            kmin = 2.0*np.pi*(2.0 / self.width.max())
+            kmax = 2.0*np.pi*(0.5 / self.delta.min())
             kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins+1)
         elif isinstance(bins, np.ndarray):
             kbins = bins
