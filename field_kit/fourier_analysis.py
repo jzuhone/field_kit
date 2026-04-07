@@ -31,6 +31,9 @@ class FourierAnalysis:
         self.dV = np.prod(self.delta)
         self.ndim = self.ddims.size
         self.shape = tuple(np.insert(self.ddims, 0, self.ndim))
+        self.dk = 2.0*np.pi/self.width
+        self.dVk = np.prod(self.dk)
+        self.geom_factor = 1.0/(2.0*np.pi)**self.ndim
 
     def _make_wavenumbers(self):
         # Shift the wavenumbers so that the zero is at the center
@@ -216,6 +219,20 @@ class FourierAnalysis:
         P = np.abs(fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
 
         return FFTArray(P, delta=self.delta)
+
+    def integrate_kspace(self, x, axis=None):
+        if not isinstance(x, FFTArray):
+            raise TypeError("Input must be an FFTArray!")
+        self._check_data(x)
+        if axis is None:
+            axis = tuple(range(self.ndim))
+        if x.ndim == self.ndim+1:
+            iaxis = tuple(ax+1 for ax in axis)
+        else:
+            iaxis = axis
+        naxis = len(axis)
+        geom_factor = 1.0/(2.0*np.pi)**naxis
+        return np.sum(x, axis=iaxis)*np.prod(self.dk[list(axis)])*geom_factor
 
     def make_binned_powerspec(self, data, bins):
 
