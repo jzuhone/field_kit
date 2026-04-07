@@ -5,9 +5,8 @@
 import numpy as np
 from numba import njit, prange
 from scipy.fft import fftfreq
+from .constants import sqrt2, two_pi
 from .fourier_analysis import FFTArray, FourierAnalysis
-
-sqrt2 = 2.0**0.5
 
 
 def make_jit_power_spec(power_spec, **njit_kwargs):

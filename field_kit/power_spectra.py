@@ -1,8 +1,7 @@
 import numpy as np
 from scipy.integrate import quad
 
-
-two_pi = 2.0*np.pi
+from .constants import two_pi
 
 
 class PowerSpectrum:
@@ -12,7 +11,7 @@ class PowerSpectrum:
         if ndim not in [1, 2, 3]:
             raise ValueError("Invalid number of dimensions! Must be 1, 2, or 3.")
         self.ndim = ndim
-        self.prefactor = two_pi**ndim
+        self.prefactor = 1.0/two_pi**ndim
 
     def __call__(self, k):
         return self.norm * self.func(k)
@@ -39,6 +38,30 @@ class PowerSpectrum:
         )
 
 
+class PowerLaw(PowerSpectrum):
+    """
+    Power-law power spectrum.
+
+    Parameters
+    ----------
+    alpha : float
+        Power-law index.
+    k0 : float
+        Normalization scale (wavenumber at which the power spectrum is normalized).
+    ndim : int, optional
+        Number of dimensions (1, 2, or 3). Default is 3.
+    """
+    def __init__(self, alpha, k0, ndim=3):
+
+        self.alpha = alpha
+        self.k0 = k0
+
+        def _pspec(k):
+            return (k/k0)**alpha
+
+        super().__init__(_pspec, ndim=ndim)
+
+
 class PowerLawBetaModel(PowerSpectrum):
     """
     Power-law power spectrum with exponential cutoffs at small and large scales.
@@ -58,11 +81,11 @@ class PowerLawBetaModel(PowerSpectrum):
 
         self.l_min = l_min
         self.l_max = l_max
-        self.k_min_i = l_min/two_pi
-        self.k_max_i = l_max/two_pi
+        k_min_i = l_min/two_pi
+        k_max_i = l_max/two_pi
         self.alpha = alpha
 
         def _pspec(k):
-            return (1.0 + (k * k_max_inv) ** 2) ** (0.5 * alpha) * np.exp(-((k * k_min_i) ** 2))
+            return (1.0 + (k * k_max_i) ** 2) ** (0.5 * alpha) * np.exp(-((k * k_min_i) ** 2))
 
-	super().__init__(_pspec, length_scale=l_min, ndim=ndim)
+        super().__init__(_pspec, ndim=ndim)
