@@ -1,10 +1,9 @@
 import numpy as np
 import numpy.ma as ma
-from scipy.fft import fftfreq, fftshift, fftn, ifftn
+from scipy.fft import fftfreq, fftn, ifftn
 
 
 class FFTArray(np.ndarray):
-
     def __new__(cls, input_array, delta=None):
         # Create the standard ndarray instance
         obj = np.asarray(input_array).view(cls)
@@ -15,19 +14,24 @@ class FFTArray(np.ndarray):
 
     def __array_finalize__(self, obj):
         # Standard check to see if we are being called from explicit constructor
-        if obj is None: return
+        if obj is None:
+            return
 
         # Copy properties from the parent (obj) to the child (self)
         # We use getattr(..., None) because 'obj' might be a plain numpy array
         # (e.g. if you do: plain_arr * custom_arr)
-        self.delta = getattr(obj, 'delta', None)
+        self.delta = getattr(obj, "delta", None)
 
     def average_symmetric_k(self, axis=None):
         """
-        Averages the +k and -k modes of a fftshifted array along multiple axes.
+        Averages the +k and -k modes of an array along multiple axes, using
+        the same (unshifted) layout as scipy.fft.fftn/ifftn: k=0 at index 0,
+        and the mode at index i mirrors the one at index (-i) % N. The
+        standalone Nyquist mode (index N/2 for even N, which has no
+        distinct -k mirror) is dropped from the output, same as before.
 
         Parameters:
-        arr (ndarray): The input array (fftshifted so k=0 is at N//2).
+        arr (ndarray): The input array (unshifted, i.e. k=0 at index 0).
         axes (int or tuple of ints, optional): The axes along which to fold.
                                                If None, folds over all axes.
 
@@ -46,10 +50,10 @@ class FFTArray(np.ndarray):
         # Sequentially fold over each requested axis
         for ax in axis:
             N = folded_arr.shape[ax]
-            c = N // 2  # The index of k=0
+            n_pos = N - N // 2  # number of k >= 0 modes, excluding Nyquist
 
-            pos_indices = np.arange(c, N)
-            neg_indices = c - np.arange(0, len(pos_indices))
+            pos_indices = np.arange(n_pos)
+            neg_indices = (-pos_indices) % N
 
             pos = np.take(folded_arr, pos_indices, axis=ax)
             neg = np.take(folded_arr, neg_indices, axis=ax)
@@ -67,18 +71,18 @@ class FourierAnalysis:
         self.dV = np.prod(self.delta)
         self.ndim = self.ddims.size
         self.shape = tuple(np.insert(self.ddims, 0, self.ndim))
-        self.dk = 2.0*np.pi/self.width
+        self.dk = 2.0 * np.pi / self.width
         self.dVk = np.prod(self.dk)
-        self.geom_factor = 1.0/(2.0*np.pi)**self.ndim
+        self.geom_factor = 1.0 / (2.0 * np.pi) ** self.ndim
 
     def _make_wavenumbers(self):
-        # Shift the wavenumbers so that the zero is at the center
-        # of the transformed image and compute the grid
-        kvec = [fftshift(2.0*np.pi*fftfreq(self.ddims[0], d=self.delta[0]))]
+        # Same (unshifted) layout as scipy.fft.fftn/ifftn: zero-frequency
+        # at index 0, matching the FFTArray data these are combined with.
+        kvec = [2.0 * np.pi * fftfreq(self.ddims[0], d=self.delta[0])]
         if self.ndim > 1:
-            kvec.append(fftshift(2.0*np.pi*fftfreq(self.ddims[1], d=self.delta[1])))
+            kvec.append(2.0 * np.pi * fftfreq(self.ddims[1], d=self.delta[1]))
         if self.ndim > 2:
-            kvec.append(fftshift(2.0*np.pi*fftfreq(self.ddims[2], d=self.delta[2])))
+            kvec.append(2.0 * np.pi * fftfreq(self.ddims[2], d=self.delta[2]))
         self._kvec = np.array(np.meshgrid(*kvec, indexing="ij"))
         self._kk = (self._kvec**2).sum(axis=0)
         self._kmag = np.sqrt(self._kk)
@@ -112,15 +116,17 @@ class FourierAnalysis:
 
     @property
     def khat(self):
-        return np.nan_to_num(self._kvec/self._kmag)
+        return np.nan_to_num(self._kvec / self._kmag)
 
     def _check_data(self, data):
-        if data.ndim == self.ndim+1:
+        if data.ndim == self.ndim + 1:
             self_shape = self.shape
         elif data.ndim == self.ndim:
             self_shape = self.shape[1:]
         else:
-            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+            raise ValueError(
+                "Incompatible array dimensions for this FourierAnalysis instance!"
+            )
         if data.shape != self_shape:
             raise ValueError(
                 "Incompatible array shape for this FourierAnalysis instance!"
@@ -134,29 +140,33 @@ class FourierAnalysis:
     def fftn(self, x, **kwargs):
         x = np.asarray(x)
         self._check_data(x)
-        if x.ndim == self.ndim+1:
-            axes = tuple(range(1, self.ndim+1))
+        if x.ndim == self.ndim + 1:
+            axes = tuple(range(1, self.ndim + 1))
         else:
             axes = None
-        return FFTArray(fftn(x*self.dV, axes=axes, **kwargs), delta=self.delta)
+        return FFTArray(fftn(x * self.dV, axes=axes, **kwargs), delta=self.delta)
 
     def ifftn(self, x, **kwargs):
         if not isinstance(x, FFTArray):
             raise TypeError("Input must be an FFTArray!")
         self._check_data(x)
-        if x.ndim == self.ndim+1:
-            axes = tuple(range(1, self.ndim+1))
+        if x.ndim == self.ndim + 1:
+            axes = tuple(range(1, self.ndim + 1))
         else:
             axes = None
-        return ifftn(np.array(x)/self.dV, axes=axes, **kwargs).real
-        
+        return ifftn(np.array(x) / self.dV, axes=axes, **kwargs).real
+
     def generate_waves(self, diff_type):
         if diff_type == "continuum":
             return self.kvec, self.kmag
         elif diff_type == "central":
-            diff_func = lambda k, dx: np.sin(k * dx) / dx
+
+            def diff_func(k, dx):
+                return np.sin(k * dx) / dx
         elif diff_type == "forward":
-            diff_func = lambda k, dx: -1j * np.exp(1j * k * dx - 1.0) / dx
+
+            def diff_func(k, dx):
+                return -1j * np.exp(1j * k * dx - 1.0) / dx
         else:
             raise NotImplementedError()
         k = diff_func(
@@ -172,16 +182,18 @@ class FourierAnalysis:
             self._check_data(data_vec)
         k, kmag = self.generate_waves(diff_type)
         with np.errstate(divide="ignore", invalid="ignore"):
-            ret = k*np.sum(k * data_vec, axis=0)/(kmag*kmag)
+            ret = k * np.sum(k * data_vec, axis=0) / (kmag * kmag)
         ret = FFTArray(np.nan_to_num(ret), delta=self.delta)
         if return_fft:
             return ret
         else:
             return self.ifftn(ret)
-    
+
     def divergence_of_field(self, data_vec):
         if data_vec.shape != self.shape:
-            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+            raise ValueError(
+                "Incompatible array dimensions for this FourierAnalysis instance!"
+            )
         div = np.gradient(data_vec[0], self.delta[0], axis=0, edge_order=2)
         if self.ndim > 1:
             div += np.gradient(data_vec[1], self.delta[1], axis=1, edge_order=2)
@@ -191,21 +203,69 @@ class FourierAnalysis:
 
     def curl_of_field(self, data_vec):
         if data_vec.shape != self.shape:
-            raise ValueError("Incompatible array dimensions for this FourierAnalysis instance!")
+            raise ValueError(
+                "Incompatible array dimensions for this FourierAnalysis instance!"
+            )
         if self.ndim == 1:
             raise NotImplementedError("You cannot compute the curl in one dimension!")
-        curl = np.empty_like(data_vec)
         dvydx = np.gradient(data_vec[1], self.delta[0], axis=0, edge_order=2)
         dvxdy = np.gradient(data_vec[0], self.delta[1], axis=1, edge_order=2)
+        if self.ndim == 2:
+            # The curl of a 2D vector field is a scalar (its out-of-plane component).
+            return dvydx - dvxdy
+        curl = np.empty_like(data_vec)
         curl[2] = dvydx - dvxdy
-        if self.ndim == 3:
-            dvzdy = np.gradient(data_vec[2], self.delta[1], axis=1, edge_order=2)
-            dvydz = np.gradient(data_vec[1], self.delta[2], axis=2, edge_order=2)
-            curl[0] = dvzdy - dvydz
-            dvxdz = np.gradient(data_vec[0], self.delta[2], axis=2, edge_order=2)
-            dvzdx = np.gradient(data_vec[2], self.delta[0], axis=0, edge_order=2)
-            curl[1] = dvxdz - dvzdx
+        dvzdy = np.gradient(data_vec[2], self.delta[1], axis=1, edge_order=2)
+        dvydz = np.gradient(data_vec[1], self.delta[2], axis=2, edge_order=2)
+        curl[0] = dvzdy - dvydz
+        dvxdz = np.gradient(data_vec[0], self.delta[2], axis=2, edge_order=2)
+        dvzdx = np.gradient(data_vec[2], self.delta[0], axis=0, edge_order=2)
+        curl[1] = dvxdz - dvzdx
         return curl
+
+    def potential_of_field(self, data_vec, diff_type="continuum", return_fft=False):
+        """
+        Invert B = curl(A) to recover the vector potential A for a
+        divergence-free vector field B, in the Coulomb gauge (div(A) = 0):
+        A_hat(k) = i(k x B_hat(k)) / |k|^2.
+
+        In 3D, A is returned as a 3-component vector field. In 2D, k and
+        B_hat are both 2-vectors, so their cross product is a scalar and A
+        is just the out-of-plane component (see
+        BaseField.generate_vector_potential_realization).
+
+        Parameters
+        ----------
+        data_vec : ndarray or FFTArray
+            The divergence-free vector field B, of shape (ndim, *ddims).
+        diff_type : str, optional
+            Which wavenumbers to use for the inversion (passed to
+            generate_waves). Default is "continuum", the exact FFT
+            wavenumbers -- this is the exact algebraic inverse of a curl
+            computed the same way, not of curl_of_field, which uses
+            real-space finite differences and will only agree with this
+            at low k.
+        return_fft : boolean, optional
+            If True, return the potential in Fourier space. Default is False.
+        """
+        if self.ndim == 1:
+            raise NotImplementedError("The vector potential is not defined in 1D.")
+        if not isinstance(data_vec, FFTArray):
+            data_vec = self.fftn(data_vec)
+        else:
+            self._check_data(data_vec)
+        k, kmag = self.generate_waves(diff_type)
+        if self.ndim == 2:
+            cross = k[0] * data_vec[1] - k[1] * data_vec[0]
+        else:
+            cross = np.cross(k, data_vec, axis=0)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            a_hat = 1j * cross / (kmag * kmag)
+        a_hat = FFTArray(np.nan_to_num(a_hat), delta=self.delta)
+        if return_fft:
+            return a_hat
+        else:
+            return self.ifftn(a_hat)
 
     def window_data(self, data, filter_function="tukey", **kwargs):
         """
@@ -233,8 +293,8 @@ class FourierAnalysis:
         for axis, axis_size in enumerate(self.shape[1:]):
             # set up shape for numpy broadcasting
             filter_shape = [
-                               1,
-                           ] * self.ndim
+                1,
+            ] * self.ndim
             filter_shape[axis] = axis_size
             window = filter_function(axis_size, **kwargs).reshape(filter_shape)
             # scale the window intensities to maintain image intensity
@@ -247,12 +307,7 @@ class FourierAnalysis:
         else:
             self._check_data(data)
 
-        if data.ndim == self.ndim+1:
-            axes = tuple(range(1, self.ndim+1))
-        else:
-            axes = None
-
-        P = np.abs(fftshift(data, axes=axes)) ** 2 / np.prod(self.width)
+        P = np.abs(data) ** 2 / np.prod(self.width)
 
         return FFTArray(P, delta=self.delta)
 
@@ -262,13 +317,13 @@ class FourierAnalysis:
         self._check_data(x)
         if axis is None:
             axis = tuple(range(self.ndim))
-        if x.ndim == self.ndim+1:
-            iaxis = tuple(ax+1 for ax in axis)
+        if x.ndim == self.ndim + 1:
+            iaxis = tuple(ax + 1 for ax in axis)
         else:
             iaxis = axis
         naxis = len(axis)
-        geom_factor = 1.0/(2.0*np.pi)**naxis
-        return np.sum(x, axis=iaxis)*np.prod(self.dk[list(axis)])*geom_factor
+        geom_factor = 1.0 / (2.0 * np.pi) ** naxis
+        return np.sum(x, axis=iaxis) * np.prod(self.dk[list(axis)]) * geom_factor
 
     def make_binned_powerspec(self, data, bins):
 
@@ -276,14 +331,14 @@ class FourierAnalysis:
 
         # Bin up the gridded power spectrum into a 1-D power spectrum
         if isinstance(bins, int):
-            kmin = 2.0*np.pi*(2.0 / self.width.max())
-            kmax = 2.0*np.pi*(0.5 / self.delta.min())
-            kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins+1)
+            kmin = 2.0 * np.pi * (2.0 / self.width.max())
+            kmax = 2.0 * np.pi * (0.5 / self.delta.min())
+            kbins = np.logspace(np.log10(kmin), np.log10(kmax), bins + 1)
         elif isinstance(bins, np.ndarray):
             kbins = bins
         n = np.histogram(self.kmag, kbins)[0]
 
-        if P.ndim == self.ndim+1:
+        if P.ndim == self.ndim + 1:
             Pk = []
             for Pi in P:
                 Pk.append(np.histogram(self.kmag, kbins, weights=Pi)[0])

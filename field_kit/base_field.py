@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.fft import fftfreq
+
 from .constants import two_pi
 from .fourier_analysis import FFTArray, FourierAnalysis
 
@@ -13,17 +14,36 @@ class BaseField:
         self.delta = self.width / self.ddims
         self.dV = np.prod(self.delta)
         self.ndim = self.left_edge.size
-        self.x = np.linspace(self.left_edge[0]+0.5*self.delta[0], self.right_edge[0]-0.5*self.delta[0], self.ddims[0])
+        self.x = np.linspace(
+            self.left_edge[0] + 0.5 * self.delta[0],
+            self.right_edge[0] - 0.5 * self.delta[0],
+            self.ddims[0],
+        )
         if self.ndim > 1:
-            self.y = np.linspace(self.left_edge[1]+0.5*self.delta[1], self.right_edge[1]-0.5*self.delta[1], self.ddims[1])
+            self.y = np.linspace(
+                self.left_edge[1] + 0.5 * self.delta[1],
+                self.right_edge[1] - 0.5 * self.delta[1],
+                self.ddims[1],
+            )
         if self.ndim == 3:
-            self.z = np.linspace(self.left_edge[2]+0.5*self.delta[2], self.right_edge[2]-0.5*self.delta[2], self.ddims[2])
+            self.z = np.linspace(
+                self.left_edge[2] + 0.5 * self.delta[2],
+                self.right_edge[2] - 0.5 * self.delta[2],
+                self.ddims[2],
+            )
 
-        self.kx = two_pi*fftfreq(self.ddims[0], d=self.delta[0])
+        self.kx = two_pi * fftfreq(self.ddims[0], d=self.delta[0])
         if self.ndim > 1:
-            self.ky = two_pi*fftfreq(self.ddims[1], d=self.delta[1])
+            self.ky = two_pi * fftfreq(self.ddims[1], d=self.delta[1])
         if self.ndim == 3:
-            self.kz = two_pi*fftfreq(self.ddims[2], d=self.delta[2])
+            self.kz = two_pi * fftfreq(self.ddims[2], d=self.delta[2])
+
+
+class RandomField(BaseField):
+
+    def __init__(self, left_edge, right_edge, ddims, seed):
+        super().__init__(left_edge, right_edge, ddims)
+        self.prng = np.random.default_rng(seed=seed)
 
     def _generate_field_realization(self):
         raise NotImplementedError
@@ -43,12 +63,14 @@ class BaseField:
         v = self._generate_field_realization()
 
         if fourier_space:
-            return FFTArray(v*self.dV, delta=self.delta)
+            return FFTArray(v * self.dV, delta=self.delta)
         else:
             v = np.fft.ifftn(v, norm="forward")
             return v.real
 
-    def generate_vector_field_realization(self, fourier_space=False, divergence_free=False):
+    def generate_vector_field_realization(
+        self, fourier_space=False, divergence_free=False
+    ):
         """
         Generate a random realization of the field as a vector field.
         The first index of the NumPy array will have the size of the
@@ -68,7 +90,7 @@ class BaseField:
             raise NotImplementedError("Vector fields are not implemented for 1D.")
 
         field = []
-        for i in range(self.ndim):
+        for _ in range(self.ndim):
             field.append(self._generate_field_realization())
         field = np.asarray(field)
 
@@ -78,10 +100,14 @@ class BaseField:
             with np.errstate(divide="ignore", invalid="ignore"):
                 field -= k * np.sum(k * field, axis=0) / (kmag * kmag)
             np.nan_to_num(field, copy=False)
-            field *= {2: 2.0**0.5, 3: 1.5**0.5}[self.ndim] # renormalize to preserve power spectrum amplitude
+            field *= {2: 2.0**0.5, 3: 1.5**0.5}[
+                self.ndim
+            ]  # renormalize to preserve power spectrum amplitude
 
         if fourier_space:
-            return FFTArray(field*self.dV, delta=self.delta)
+            return FFTArray(field * self.dV, delta=self.delta)
         else:
-            field = np.fft.ifftn(field, axes=tuple(range(1, self.ndim+1)), norm="forward")
+            field = np.fft.ifftn(
+                field, axes=tuple(range(1, self.ndim + 1)), norm="forward"
+            )
             return field.real

@@ -4,17 +4,24 @@
 
 import numpy as np
 from numba import njit, prange
-from .base_field import BaseField
+
+from .base_field import RandomField
 from .constants import sqrt2
-from .utils import enforce_hermitian_symmetry_1d, enforce_hermitian_symmetry_2d, enforce_hermitian_symmetry_3d
+from .utils import (
+    enforce_hermitian_symmetry_1d,
+    enforce_hermitian_symmetry_2d,
+    enforce_hermitian_symmetry_3d,
+)
 
 
 def make_jit_power_spec(power_spec, **njit_kwargs):
     user_jit = njit(**njit_kwargs)(power_spec.func)
     norm = power_spec.norm
+
     @njit
     def _power_spec(k):
-        return norm*user_jit(k)  # user_func must be jittable!
+        return norm * user_jit(k)  # user_func must be jittable!
+
     return _power_spec
 
 
@@ -29,6 +36,7 @@ def compute_sigma_1d(kx, nx, power_spec):
             sigma[i] = np.sqrt(power_spec(kx[i]))
 
     return sigma
+
 
 @njit(parallel=True, fastmath=True)
 def compute_sigma_2d(kx, ky, nx, ny, power_spec):
@@ -61,7 +69,7 @@ def compute_sigma_3d(kx, ky, kz, nx, ny, nz, power_spec):
     return sigma
 
 
-class GaussianRandomField(BaseField):
+class GaussianRandomField(RandomField):
     """
     Parameters
     ----------
@@ -76,19 +84,29 @@ class GaussianRandomField(BaseField):
     seed : int, optional
         Random seed for reproducibility.
     """
+
     def __init__(self, left_edge, right_edge, ddims, power_spec, seed=None):
-        super().__init__(left_edge, right_edge, ddims)
+        super().__init__(left_edge, right_edge, ddims, seed)
         self.pspec = make_jit_power_spec(power_spec)
         self.sigma = None
-        self.prng = np.random.default_rng(seed=seed)
 
     def _compute_sigma(self):
         if self.ndim == 1:
             sigma = compute_sigma_1d(self.kx, self.ddims[0], self.pspec)
         elif self.ndim == 2:
-            sigma = compute_sigma_2d(self.kx, self.ky, self.ddims[0], self.ddims[1], self.pspec)
+            sigma = compute_sigma_2d(
+                self.kx, self.ky, self.ddims[0], self.ddims[1], self.pspec
+            )
         else:
-            sigma = compute_sigma_3d(self.kx, self.ky, self.kz, self.ddims[0], self.ddims[1], self.ddims[2], self.pspec)
+            sigma = compute_sigma_3d(
+                self.kx,
+                self.ky,
+                self.kz,
+                self.ddims[0],
+                self.ddims[1],
+                self.ddims[2],
+                self.pspec,
+            )
         sigma /= np.sqrt(np.prod(self.width))
         self.sigma = sigma
 
@@ -96,8 +114,8 @@ class GaussianRandomField(BaseField):
         if self.sigma is None:
             self._compute_sigma()
 
-        v_real = self.prng.normal(size=self.ddims)*self.sigma
-        v_imag = self.prng.normal(size=self.ddims)*self.sigma
+        v_real = self.prng.normal(size=self.ddims) * self.sigma
+        v_imag = self.prng.normal(size=self.ddims) * self.sigma
 
         v = v_real + 1j * v_imag
         v /= sqrt2

@@ -1,11 +1,11 @@
-from numba import njit
 import numpy as np
+from numba import njit
 
 
 @njit(fastmath=True)
 def enforce_hermitian_symmetry_1d(f_hat):
     nx = f_hat.shape[0]
-    for i in range(nx // 2 + 1): # only loop over half
+    for i in range(nx // 2 + 1):  # only loop over half
         i_ = (-i) % nx
         if i != i_:
             f_hat[i_] = np.conj(f_hat[i])
@@ -37,5 +37,7 @@ def enforce_hermitian_symmetry_3d(f_hat):
                 if (i, j, k) != (i_, j_, k_):
                     f_hat[i_, j_, k_] = np.conj(f_hat[i, j, k])
                 else:
-                    f_hat[i, j, k] = complex(f_hat[i, j, k].real, 0.0)  # ensure real on Nyquist
+                    f_hat[i, j, k] = complex(
+                        f_hat[i, j, k].real, 0.0
+                    )  # ensure real on Nyquist
     return f_hat
