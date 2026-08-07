@@ -40,7 +40,6 @@ class BaseField:
 
 
 class RandomField(BaseField):
-
     def __init__(self, left_edge, right_edge, ddims, seed):
         super().__init__(left_edge, right_edge, ddims)
         self.prng = np.random.default_rng(seed=seed)

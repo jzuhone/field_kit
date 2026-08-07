@@ -10,3 +10,7 @@ examples/.jupytext-sync-ipynb
 
 # Virtual environments
 .venv
+
+# Sphinx docs build artifacts
+docs/_build/
+docs/api/generated/

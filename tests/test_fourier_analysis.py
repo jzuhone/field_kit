@@ -56,7 +56,10 @@ def test_potential_of_field_inverts_spectral_curl():
         grf = GaussianRandomField(np.zeros(ndim), width, ddims, ps, seed=7)
         fa = FourierAnalysis(width, ddims)
 
-        a = grf.generate_vector_potential_realization()
+        if ndim == 2:
+            a = grf.generate_scalar_field_realization()
+        else:
+            a = grf.generate_vector_field_realization(divergence_free=False)
         b = _spectral_curl(fa, a)
         a_recovered = fa.potential_of_field(b)
         b_recovered = _spectral_curl(fa, a_recovered)

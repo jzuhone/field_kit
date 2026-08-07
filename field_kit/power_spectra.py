@@ -67,12 +67,14 @@ class DoublePowerLaw(PowerSpectrum):
         self.alpha_hi = alpha_hi
         self.l_break = l_break
         self.delta = delta
-        delta_i = 1.0/delta
+        delta_i = 1.0 / delta
         k_break_i = l_break / two_pi
 
         def _pspec(k):
             x = k * k_break_i
-            return (x ** alpha_lo) * (1.0+x**(delta_i*(alpha_lo-alpha_hi)))**-delta
+            return (x**alpha_lo) * (
+                1.0 + x ** (delta_i * (alpha_lo - alpha_hi))
+            ) ** -delta
 
         super().__init__(_pspec, ndim=ndim)
 

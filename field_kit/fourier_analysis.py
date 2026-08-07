@@ -30,13 +30,15 @@ class FFTArray(np.ndarray):
         standalone Nyquist mode (index N/2 for even N, which has no
         distinct -k mirror) is dropped from the output, same as before.
 
-        Parameters:
-        arr (ndarray): The input array (unshifted, i.e. k=0 at index 0).
-        axes (int or tuple of ints, optional): The axes along which to fold.
-                                               If None, folds over all axes.
+        Parameters
+        ----------
+        axis : int or tuple of ints, optional
+            The axes along which to fold. If None, folds over all axes.
 
-        Returns:
-        ndarray: The symmetrically folded array.
+        Returns
+        -------
+        ndarray
+            The symmetrically folded array.
         """
         # If no axes specified, fold over all of them
         if axis is None:
@@ -189,6 +191,13 @@ class FourierAnalysis:
         else:
             return self.ifftn(ret)
 
+    def solenoidal_component(self, data_vec, diff_type="central", return_fft=False):
+        vc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=return_fft)
+        if return_fft:
+            return self.fftn(data_vec)-vc
+        else:
+            return data_vec-vc
+
     def divergence_of_field(self, data_vec):
         if data_vec.shape != self.shape:
             raise ValueError(
@@ -224,20 +233,19 @@ class FourierAnalysis:
         return curl
 
     def potential_of_field(self, data_vec, diff_type="continuum", return_fft=False):
-        """
+        r"""
         Invert B = curl(A) to recover the vector potential A for a
         divergence-free vector field B, in the Coulomb gauge (div(A) = 0):
-        A_hat(k) = i(k x B_hat(k)) / |k|^2.
+        A_hat(k) = i(k x B_hat(k)) / (k . k).
 
         In 3D, A is returned as a 3-component vector field. In 2D, k and
         B_hat are both 2-vectors, so their cross product is a scalar and A
-        is just the out-of-plane component (see
-        BaseField.generate_vector_potential_realization).
+        is just the out-of-plane component.
 
         Parameters
         ----------
         data_vec : ndarray or FFTArray
-            The divergence-free vector field B, of shape (ndim, *ddims).
+            The divergence-free vector field B, of shape (ndim, \*ddims).
         diff_type : str, optional
             Which wavenumbers to use for the inversion (passed to
             generate_waves). Default is "continuum", the exact FFT
@@ -254,13 +262,19 @@ class FourierAnalysis:
             data_vec = self.fftn(data_vec)
         else:
             self._check_data(data_vec)
-        k, kmag = self.generate_waves(diff_type)
+        k, _ = self.generate_waves(diff_type)
+        # k . k (unconjugated self-dot-product), not |k|^2 = k . conj(k):
+        # the two coincide for real k (continuum/central) but not for the
+        # complex-valued k produced by e.g. diff_type="forward", and it's
+        # k . k that the underlying vector identity k x (k x B) = k(k.B)
+        # - (k.k)B actually requires.
+        kk = np.sum(k * k, axis=0)
         if self.ndim == 2:
             cross = k[0] * data_vec[1] - k[1] * data_vec[0]
         else:
             cross = np.cross(k, data_vec, axis=0)
         with np.errstate(divide="ignore", invalid="ignore"):
-            a_hat = 1j * cross / (kmag * kmag)
+            a_hat = 1j * cross / kk
         a_hat = FFTArray(np.nan_to_num(a_hat), delta=self.delta)
         if return_fft:
             return a_hat

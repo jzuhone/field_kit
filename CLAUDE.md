@@ -15,10 +15,12 @@ coordinates). Core package: `field_kit/` (flat layout, no subpackages):
 ## Commands
 
 - Install deps: `uv sync` (add `--group docs` for the heavier deps needed by
-  `examples/` notebooks: matplotlib, pandas, yt, h5py, pooch)
+  `examples/` notebooks and the documentation build: matplotlib, pandas, yt,
+  h5py, pooch, sphinx, myst-nb, pydata-sphinx-theme)
 - Run tests: `uv run pytest`
 - Lint: `uv run ruff check field_kit/`
 - Format: `uv run ruff format field_kit/`
+- Build docs: `uv run --group docs sphinx-build -b html docs docs/_build/html`
 
 ## Conventions and gotchas
 
@@ -47,3 +49,9 @@ coordinates). Core package: `field_kit/` (flat layout, no subpackages):
 - `examples/*.ipynb` are illustrative, manually-run notebooks (not executed
   in CI/tests). Use `/verify-examples` to run them headlessly after changes
   that touch `field_kit/` internals.
+- `examples/*.ipynb` are also rendered as tutorial pages in `docs/` (via a
+  `docs/examples -> ../examples` symlink and `nb_execution_mode = "off"` in
+  `docs/conf.py`, so the doc build uses each notebook's saved outputs rather
+  than re-running it). Each notebook needs a top-level markdown title cell
+  (`# Some Title`) — without one, Sphinx's toctree can't link to it by name.
+  Add new example notebooks to the toctree in `docs/tutorials/index.md`.
