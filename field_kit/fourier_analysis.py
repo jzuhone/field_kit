@@ -192,43 +192,106 @@ class FourierAnalysis:
             return self.ifftn(ret)
 
     def solenoidal_component(self, data_vec, diff_type="central", return_fft=False):
-        vc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=return_fft)
-        if return_fft:
-            return self.fftn(data_vec)-vc
-        else:
-            return data_vec-vc
+        """
+        Project out the divergence-free (solenoidal) component of a vector
+        field: v_solenoidal = v - v_compressional, where v_compressional is
+        the component returned by divergence_component.
 
-    def divergence_of_field(self, data_vec):
+        Parameters
+        ----------
+        data_vec : ndarray or FFTArray
+            The vector field to project, of shape (ndim, \\*ddims).
+        diff_type : str, optional
+            Which wavenumbers to use (passed to generate_waves). Default
+            is "central".
+        return_fft : boolean, optional
+            If True, return the solenoidal component in Fourier space.
+            Default is False.
+        """
+        if not isinstance(data_vec, FFTArray):
+            data_vec = self.fftn(data_vec)
+        else:
+            self._check_data(data_vec)
+        vc = self.divergence_component(data_vec, diff_type=diff_type, return_fft=True)
+        vs = FFTArray(data_vec - vc, delta=self.delta)
+        if return_fft:
+            return vs
+        else:
+            return self.ifftn(vs)
+
+    def _spatial_gradient(self, data, delta, axis, periodic):
+        if periodic:
+            # Central difference with wraparound, i.e. the real-space
+            # operator whose Fourier multiplier is generate_waves's
+            # "central" wavenumber (sin(k*dx)/dx). Only valid for data on
+            # a periodic domain, e.g. an FFT-generated field.
+            return (np.roll(data, -1, axis=axis) - np.roll(data, 1, axis=axis)) / (
+                2.0 * delta
+            )
+        else:
+            return np.gradient(data, delta, axis=axis, edge_order=2)
+
+    def divergence_of_field(self, data_vec, periodic=False):
+        """
+        Compute the divergence of a vector field using real-space finite
+        differences.
+
+        Parameters
+        ----------
+        data_vec : ndarray
+            The vector field, of shape (ndim, \\*ddims).
+        periodic : boolean, optional
+            If True, use periodic (wraparound) central differences instead
+            of one-sided differences at the domain boundary. Only
+            appropriate for data on a periodic domain (e.g. a field
+            generated via FFT) -- for general, non-periodic data the
+            default (False) is correct. Default is False.
+        """
         if data_vec.shape != self.shape:
             raise ValueError(
                 "Incompatible array dimensions for this FourierAnalysis instance!"
             )
-        div = np.gradient(data_vec[0], self.delta[0], axis=0, edge_order=2)
+        div = self._spatial_gradient(data_vec[0], self.delta[0], 0, periodic)
         if self.ndim > 1:
-            div += np.gradient(data_vec[1], self.delta[1], axis=1, edge_order=2)
+            div += self._spatial_gradient(data_vec[1], self.delta[1], 1, periodic)
         if self.ndim == 3:
-            div += np.gradient(data_vec[2], self.delta[2], axis=2, edge_order=2)
+            div += self._spatial_gradient(data_vec[2], self.delta[2], 2, periodic)
         return div
 
-    def curl_of_field(self, data_vec):
+    def curl_of_field(self, data_vec, periodic=False):
+        """
+        Compute the curl of a vector field using real-space finite
+        differences.
+
+        Parameters
+        ----------
+        data_vec : ndarray
+            The vector field, of shape (ndim, \\*ddims).
+        periodic : boolean, optional
+            If True, use periodic (wraparound) central differences instead
+            of one-sided differences at the domain boundary. Only
+            appropriate for data on a periodic domain (e.g. a field
+            generated via FFT) -- for general, non-periodic data the
+            default (False) is correct. Default is False.
+        """
         if data_vec.shape != self.shape:
             raise ValueError(
                 "Incompatible array dimensions for this FourierAnalysis instance!"
             )
         if self.ndim == 1:
             raise NotImplementedError("You cannot compute the curl in one dimension!")
-        dvydx = np.gradient(data_vec[1], self.delta[0], axis=0, edge_order=2)
-        dvxdy = np.gradient(data_vec[0], self.delta[1], axis=1, edge_order=2)
+        dvydx = self._spatial_gradient(data_vec[1], self.delta[0], 0, periodic)
+        dvxdy = self._spatial_gradient(data_vec[0], self.delta[1], 1, periodic)
         if self.ndim == 2:
             # The curl of a 2D vector field is a scalar (its out-of-plane component).
             return dvydx - dvxdy
         curl = np.empty_like(data_vec)
         curl[2] = dvydx - dvxdy
-        dvzdy = np.gradient(data_vec[2], self.delta[1], axis=1, edge_order=2)
-        dvydz = np.gradient(data_vec[1], self.delta[2], axis=2, edge_order=2)
+        dvzdy = self._spatial_gradient(data_vec[2], self.delta[1], 1, periodic)
+        dvydz = self._spatial_gradient(data_vec[1], self.delta[2], 2, periodic)
         curl[0] = dvzdy - dvydz
-        dvxdz = np.gradient(data_vec[0], self.delta[2], axis=2, edge_order=2)
-        dvzdx = np.gradient(data_vec[2], self.delta[0], axis=0, edge_order=2)
+        dvxdz = self._spatial_gradient(data_vec[0], self.delta[2], 2, periodic)
+        dvzdx = self._spatial_gradient(data_vec[2], self.delta[0], 0, periodic)
         curl[1] = dvxdz - dvzdx
         return curl
 

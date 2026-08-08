@@ -92,6 +92,48 @@ def test_average_symmetric_k_preserves_hermitian_real_signal():
     np.testing.assert_allclose(folded, f_hat[:n_pos].real, atol=1e-8)
 
 
+def test_solenoidal_component_complements_divergence_component():
+    # solenoidal + compressional must reconstruct the original field, and
+    # the result must agree regardless of whether the input is passed as
+    # a real-space array or an already-transformed FFTArray (regression
+    # test for a bug where FFTArray input was silently re-FFT'd/mismatched
+    # in space).
+    width = np.array([100.0, 100.0])
+    ddims = [32, 32]
+    fa = FourierAnalysis(width, ddims)
+    field = np.random.default_rng(0).normal(size=(2, *ddims))
+
+    vc = fa.divergence_component(field)
+    vs = fa.solenoidal_component(field)
+    np.testing.assert_allclose(vc + vs, field, atol=1e-10)
+
+    field_hat = fa.fftn(field)
+    vs_hat = fa.solenoidal_component(field_hat, return_fft=True)
+    np.testing.assert_allclose(fa.ifftn(vs_hat), vs, atol=1e-10)
+
+
+def test_periodic_gradient_removes_boundary_artifact():
+    # curl_of_field/divergence_of_field default to non-periodic (one-sided
+    # at the domain edge) finite differences, since data need not be
+    # periodic in general. But the compressive/solenoidal projections are
+    # inherently periodic (they're computed via FFT), so checking them
+    # with the *default* real-space curl/div leaves a boundary artifact
+    # from that mismatch, not a real residual. periodic=True removes it.
+    width = np.array([100.0, 100.0, 100.0])
+    ddims = [32, 32, 32]
+    fa = FourierAnalysis(width, ddims)
+    v = np.random.default_rng(0).normal(size=(3, *ddims))
+
+    vc = fa.divergence_component(v)
+    vs = fa.solenoidal_component(v)
+
+    assert np.abs(fa.curl_of_field(vc)).mean() > 1e-8
+    assert np.abs(fa.curl_of_field(vc, periodic=True)).max() < 1e-10
+
+    assert np.abs(fa.divergence_of_field(vs)).mean() > 1e-8
+    assert np.abs(fa.divergence_of_field(vs, periodic=True)).max() < 1e-10
+
+
 def test_curl_of_field_2d_returns_scalar():
     width = np.array([100.0, 100.0])
     ddims = [32, 32]
