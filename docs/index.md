@@ -1,11 +1,10 @@
 # field_kit
 
 `field_kit` generates and analyzes Gaussian random fields (GRFs) and their
-power spectra on regular grids, in 1, 2, or 3 dimensions. It's built for
-astrophysical and cosmological applications where a field is specified by a
-power spectrum in Fourier space and realized on a real-space grid — for
-example, synthetic turbulent velocity or magnetic fields with a prescribed
-power-law spectrum.
+power spectra on regular grids, in 1, 2, or 3 dimensions. It's built for 
+applications where a field is specified by a power spectrum in Fourier space 
+and realized on a real-space grid — for example, synthetic turbulent velocity 
+or magnetic fields with a prescribed power-law spectrum.
 
 Core features:
 

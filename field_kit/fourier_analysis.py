@@ -4,6 +4,20 @@ from scipy.fft import fftfreq, fftn, ifftn
 
 
 class FFTArray(np.ndarray):
+    """
+    An ndarray subclass that carries the grid spacing `delta` it was
+    transformed with as metadata, so downstream methods (e.g.
+    FourierAnalysis.ifftn) can validate that arrays being combined share
+    the same grid.
+
+    Parameters
+    ----------
+    input_array : array-like
+        The array data.
+    delta : array-like, optional
+        The grid spacing along each dimension.
+    """
+
     def __new__(cls, input_array, delta=None):
         # Create the standard ndarray instance
         obj = np.asarray(input_array).view(cls)
@@ -28,7 +42,7 @@ class FFTArray(np.ndarray):
         the same (unshifted) layout as scipy.fft.fftn/ifftn: k=0 at index 0,
         and the mode at index i mirrors the one at index (-i) % N. The
         standalone Nyquist mode (index N/2 for even N, which has no
-        distinct -k mirror) is dropped from the output, same as before.
+        distinct -k mirror) is dropped from the output.
 
         Parameters
         ----------
@@ -66,6 +80,22 @@ class FFTArray(np.ndarray):
 
 
 class FourierAnalysis:
+    """
+    FFT-based analysis of scalar and vector fields on a regular grid:
+    power spectra, divergence/curl, and vector-potential inversion.
+
+    Fourier transforms are always taken with the k = 2*pi*f convention
+    and normalized by the cell volume dV (see fftn/ifftn) rather than
+    scipy.fft's default normalization.
+
+    Parameters
+    ----------
+    width : array-like
+        The physical size of the box [kpc] along each dimension.
+    ddims : array-like
+        The number of grid cells along each dimension.
+    """
+
     def __init__(self, width, ddims):
         self.width = np.atleast_1d(width)
         self.ddims = np.atleast_1d(ddims).astype("int")
@@ -94,30 +124,55 @@ class FourierAnalysis:
 
     @property
     def kvec(self):
+        """
+        ndarray : The wavenumber vector k at each grid point, of shape
+        (ndim, \\*ddims), using the k = 2*pi*f convention. Computed
+        lazily on first access.
+        """
         if self._kvec is None:
             self._make_wavenumbers()
         return self._kvec
 
     @property
     def kx(self):
+        """
+        ndarray : The x-component of the wavenumber vector at each grid
+        point (kvec[0]).
+        """
         return self.kvec[0, ...]
 
     @property
     def ky(self):
+        """
+        ndarray : The y-component of the wavenumber vector at each grid
+        point (kvec[1]).
+        """
         return self.kvec[1, ...]
 
     @property
     def kz(self):
+        """
+        ndarray : The z-component of the wavenumber vector at each grid
+        point (kvec[2]).
+        """
         return self.kvec[2, ...]
 
     @property
     def kmag(self):
+        """
+        ndarray : The magnitude of the wavenumber vector at each grid
+        point, sqrt(kvec . kvec). Computed lazily on first access.
+        """
         if self._kmag is None:
             self._make_wavenumbers()
         return self._kmag
 
     @property
     def khat(self):
+        """
+        ndarray : The unit wavenumber vector at each grid point,
+        kvec / kmag, with the k=0 mode (division by zero) set to zero.
+        """
         return np.nan_to_num(self._kvec / self._kmag)
 
     def _check_data(self, data):
@@ -140,6 +195,24 @@ class FourierAnalysis:
                 )
 
     def fftn(self, x, **kwargs):
+        """
+        Forward FFT of real-space data, normalized by the cell volume dV
+        (F(k) = dV * sum_x f(x) exp(-i k.x)) rather than scipy.fft's
+        default normalization.
+
+        Parameters
+        ----------
+        x : ndarray
+            The data to transform, either a scalar field of shape
+            `ddims` or a vector field of shape (ndim, \\*ddims).
+        **kwargs
+            Additional keyword arguments passed to scipy.fft.fftn.
+
+        Returns
+        -------
+        FFTArray
+            The transformed data.
+        """
         x = np.asarray(x)
         self._check_data(x)
         if x.ndim == self.ndim + 1:
@@ -149,6 +222,24 @@ class FourierAnalysis:
         return FFTArray(fftn(x * self.dV, axes=axes, **kwargs), delta=self.delta)
 
     def ifftn(self, x, **kwargs):
+        """
+        Inverse FFT of Fourier-space data, normalized by the cell volume
+        dV (the exact inverse of fftn).
+
+        Parameters
+        ----------
+        x : FFTArray
+            The Fourier-space data to transform, either a scalar field
+            of shape `ddims` or a vector field of shape
+            (ndim, \\*ddims). Must be an FFTArray (not a plain ndarray).
+        **kwargs
+            Additional keyword arguments passed to scipy.fft.ifftn.
+
+        Returns
+        -------
+        ndarray
+            The real part of the transformed, real-space data.
+        """
         if not isinstance(x, FFTArray):
             raise TypeError("Input must be an FFTArray!")
         self._check_data(x)
@@ -159,6 +250,29 @@ class FourierAnalysis:
         return ifftn(np.array(x) / self.dV, axes=axes, **kwargs).real
 
     def generate_waves(self, diff_type):
+        """
+        Generate the wavenumber array used for spectral differentiation,
+        for a choice of finite-difference approximation.
+
+        Parameters
+        ----------
+        diff_type : str
+            Which differencing scheme's wavenumber to use:
+
+            - "continuum": the exact FFT wavenumbers (kvec), i.e. an
+              exact spectral derivative.
+            - "central": the wavenumber corresponding to a periodic
+              central-difference derivative, sin(k*dx)/dx.
+            - "forward": the (complex-valued) wavenumber corresponding
+              to a periodic forward-difference derivative.
+
+        Returns
+        -------
+        k : ndarray
+            The wavenumber array, of shape (ndim, \\*ddims).
+        kmag : ndarray
+            The Hermitian modulus sqrt(k . conj(k)) at each grid point.
+        """
         if diff_type == "continuum":
             return self.kvec, self.kmag
         elif diff_type == "central":
@@ -178,6 +292,22 @@ class FourierAnalysis:
         return k, kmag
 
     def divergence_component(self, data_vec, diff_type="central", return_fft=False):
+        """
+        Project out the compressional (curl-free, longitudinal)
+        component of a vector field:
+        v_compressional_hat(k) = k_hat (k_hat . v_hat(k)).
+
+        Parameters
+        ----------
+        data_vec : ndarray or FFTArray
+            The vector field to project, of shape (ndim, \\*ddims).
+        diff_type : str, optional
+            Which wavenumbers to use for the projection (passed to
+            generate_waves). Default is "central".
+        return_fft : boolean, optional
+            If True, return the compressional component in Fourier
+            space. Default is False.
+        """
         if not isinstance(data_vec, FFTArray):
             data_vec = self.fftn(data_vec)
         else:
@@ -379,6 +509,20 @@ class FourierAnalysis:
             data *= window
 
     def make_powerspec(self, data):
+        """
+        Compute the gridded power spectrum P(k) = abs(data_hat(k))**2 / V
+        of a scalar or vector field.
+
+        Parameters
+        ----------
+        data : ndarray or FFTArray
+            The field, either real-space or already Fourier-transformed.
+
+        Returns
+        -------
+        FFTArray
+            The power spectrum, same shape as the (Fourier-space) input.
+        """
         if not isinstance(data, FFTArray):
             data = self.fftn(data)
         else:
@@ -389,6 +533,24 @@ class FourierAnalysis:
         return FFTArray(P, delta=self.delta)
 
     def integrate_kspace(self, x, axis=None):
+        """
+        Integrate a gridded quantity over k-space (e.g. to recover a
+        total variance from a power spectrum),
+        sum(x) * dVk / (2*pi)**ndim.
+
+        Parameters
+        ----------
+        x : FFTArray
+            The gridded quantity to integrate.
+        axis : int or tuple of ints, optional
+            The axis or axes to integrate over. If None, integrates over
+            all spatial axes. Default is None.
+
+        Returns
+        -------
+        ndarray or float
+            The integrated quantity.
+        """
         if not isinstance(x, FFTArray):
             raise TypeError("Input must be an FFTArray!")
         self._check_data(x)
@@ -403,7 +565,26 @@ class FourierAnalysis:
         return np.sum(x, axis=iaxis) * np.prod(self.dk[list(axis)]) * geom_factor
 
     def make_binned_powerspec(self, data, bins):
+        """
+        Compute the power spectrum of a field and bin it radially in
+        the wavenumber magnitude into a 1D power spectrum.
 
+        Parameters
+        ----------
+        data : ndarray or FFTArray
+            The field, either real-space or already Fourier-transformed.
+        bins : int or ndarray
+            If an int, the number of log-spaced bins to use between the
+            smallest and largest wavenumbers resolved by the grid. If an
+            ndarray, the bin edges to use directly.
+
+        Returns
+        -------
+        kbins : ndarray
+            The bin edges used.
+        Pk : numpy.ma.MaskedArray
+            The binned power spectrum, with empty bins masked.
+        """
         P = self.make_powerspec(data)
 
         # Bin up the gridded power spectrum into a 1-D power spectrum

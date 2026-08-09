@@ -14,7 +14,27 @@ from .utils import (
 )
 
 
-def make_jit_power_spec(power_spec, **njit_kwargs):
+def _make_jit_power_spec(power_spec, **njit_kwargs):
+    """
+    Wrap a PowerSpectrum object's function in a numba-jitted callable
+    that also applies its current normalization, for use inside the
+    other njit-compiled functions in this module.
+
+    Parameters
+    ----------
+    power_spec : PowerSpectrum
+        The power spectrum to wrap. Its `func` attribute must be
+        numba-jittable.
+    **njit_kwargs
+        Additional keyword arguments passed to numba.njit when compiling
+        `power_spec.func`.
+
+    Returns
+    -------
+    callable
+        A jitted function of the wavenumber k returning the normalized
+        power spectrum.
+    """
     user_jit = njit(**njit_kwargs)(power_spec.func)
     norm = power_spec.norm
 
@@ -27,6 +47,25 @@ def make_jit_power_spec(power_spec, **njit_kwargs):
 
 @njit(parallel=True, fastmath=True)
 def compute_sigma_1d(kx, nx, power_spec):
+    """
+    Compute the per-mode standard deviation sqrt(P(k)) on a 1D
+    wavenumber grid, with the k=0 mode set to zero.
+
+    Parameters
+    ----------
+    kx : ndarray
+        The wavenumbers along the axis.
+    nx : int
+        The number of grid points.
+    power_spec : callable
+        A jitted function of the wavenumber k returning the power
+        spectrum (see make_jit_power_spec).
+
+    Returns
+    -------
+    ndarray
+        The standard deviation array, of shape (nx,).
+    """
     sigma = np.zeros(nx)
 
     for i in prange(nx):
@@ -40,6 +79,29 @@ def compute_sigma_1d(kx, nx, power_spec):
 
 @njit(parallel=True, fastmath=True)
 def compute_sigma_2d(kx, ky, nx, ny, power_spec):
+    """
+    Compute the per-mode standard deviation sqrt(P(|k|)) on a 2D
+    wavenumber grid, with the k=0 mode set to zero.
+
+    Parameters
+    ----------
+    kx : ndarray
+        The wavenumbers along the first axis.
+    ky : ndarray
+        The wavenumbers along the second axis.
+    nx : int
+        The number of grid points along the first axis.
+    ny : int
+        The number of grid points along the second axis.
+    power_spec : callable
+        A jitted function of the wavenumber k returning the power
+        spectrum (see make_jit_power_spec).
+
+    Returns
+    -------
+    ndarray
+        The standard deviation array, of shape (nx, ny).
+    """
     sigma = np.zeros((nx, ny))
 
     for i in prange(nx):
@@ -55,6 +117,33 @@ def compute_sigma_2d(kx, ky, nx, ny, power_spec):
 
 @njit(parallel=True, fastmath=True)
 def compute_sigma_3d(kx, ky, kz, nx, ny, nz, power_spec):
+    """
+    Compute the per-mode standard deviation sqrt(P(|k|)) on a 3D
+    wavenumber grid, with the k=0 mode set to zero.
+
+    Parameters
+    ----------
+    kx : ndarray
+        The wavenumbers along the first axis.
+    ky : ndarray
+        The wavenumbers along the second axis.
+    kz : ndarray
+        The wavenumbers along the third axis.
+    nx : int
+        The number of grid points along the first axis.
+    ny : int
+        The number of grid points along the second axis.
+    nz : int
+        The number of grid points along the third axis.
+    power_spec : callable
+        A jitted function of the wavenumber k returning the power
+        spectrum (see make_jit_power_spec).
+
+    Returns
+    -------
+    ndarray
+        The standard deviation array, of shape (nx, ny, nz).
+    """
     sigma = np.zeros((nx, ny, nz))
 
     for i in prange(nx):
@@ -87,7 +176,7 @@ class GaussianRandomField(RandomField):
 
     def __init__(self, left_edge, right_edge, ddims, power_spec, seed=None):
         super().__init__(left_edge, right_edge, ddims, seed)
-        self.pspec = make_jit_power_spec(power_spec)
+        self.pspec = _make_jit_power_spec(power_spec)
         self.sigma = None
 
     def _compute_sigma(self):

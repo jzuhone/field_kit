@@ -6,6 +6,21 @@ from .fourier_analysis import FFTArray, FourierAnalysis
 
 
 class BaseField:
+    """
+    Base class holding the grid geometry shared by all field types: the
+    box edges, cell spacing, real-space coordinate arrays, and Fourier
+    wavenumber arrays.
+
+    Parameters
+    ----------
+    left_edge : array-like
+        The lower edge of the box [kpc] for each of the dimensions.
+    right_edge : array-like
+        The upper edge of the box [kpc] for each of the dimensions.
+    ddims : array-like
+        The number of grids in each of the axes.
+    """
+
     def __init__(self, left_edge, right_edge, ddims):
         self.left_edge = np.atleast_1d(left_edge).astype("float64")
         self.right_edge = np.atleast_1d(right_edge).astype("float64")
@@ -40,6 +55,22 @@ class BaseField:
 
 
 class RandomField(BaseField):
+    """
+    Base class for fields generated from random realizations, adding a
+    seeded random number generator on top of BaseField's grid geometry.
+
+    Parameters
+    ----------
+    left_edge : array-like
+        The lower edge of the box [kpc] for each of the dimensions.
+    right_edge : array-like
+        The upper edge of the box [kpc] for each of the dimensions.
+    ddims : array-like
+        The number of grids in each of the axes.
+    seed : int, optional
+        Random seed for reproducibility.
+    """
+
     def __init__(self, left_edge, right_edge, ddims, seed):
         super().__init__(left_edge, right_edge, ddims)
         self.prng = np.random.default_rng(seed=seed)

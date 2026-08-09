@@ -5,6 +5,19 @@ from .constants import two_pi
 
 
 class PowerSpectrum:
+    """
+    Base class wrapping a user-supplied power spectrum function P(k),
+    with an adjustable normalization.
+
+    Parameters
+    ----------
+    power_spec_func : callable
+        A function of the wavenumber k returning the (unnormalized)
+        power spectrum. Must be numba-jittable.
+    ndim : int, optional
+        Number of dimensions (1, 2, or 3). Default is 3.
+    """
+
     def __init__(self, power_spec_func, ndim=3):
         self.func = power_spec_func
         self.norm = 1.0
@@ -17,6 +30,15 @@ class PowerSpectrum:
         return self.norm * self.func(k)
 
     def E(self, k):
+        """
+        The "energy spectrum" of the power spectrum as a
+        function of the wavenumber k.
+
+        Parameters
+        ----------
+        k : float or array-like
+            The wavenumber(s).
+        """
         if self.ndim == 1:
             e = self(k)
         elif self.ndim == 2:
@@ -26,13 +48,51 @@ class PowerSpectrum:
         return self.prefactor * e
 
     def A(self, k):
+        """
+        The Fourier amplitude corresponding to the power spectrum at a
+        given wavenumber k, A(k) = sqrt(E(k) * k).
+
+        Parameters
+        ----------
+        k : float or array-like
+            The wavenumber(s).
+        """
         return np.sqrt(self.E(k) * k)
 
     def integrate_E(self, kmin, kmax):
+        """
+        Integrate the energy spectrum E(k) over a range of wavenumbers.
+
+        Parameters
+        ----------
+        kmin : float
+            The lower wavenumber bound of the integral.
+        kmax : float
+            The upper wavenumber bound of the integral.
+
+        Returns
+        -------
+        float
+            The integral of E(k) from kmin to kmax.
+        """
         points = np.array([0.001, 0.01, 0.1, 0.3]) * (kmax - kmin) + kmin
         return float(quad(self.E, kmin, kmax, points=points)[0])
 
     def renormalize(self, f_rms, kmin=0.0, kmax=100.0):
+        """
+        Rescale the power spectrum's normalization so that the integral
+        of its energy spectrum over [kmin, kmax] gives the desired RMS
+        field value.
+
+        Parameters
+        ----------
+        f_rms : float
+            The desired RMS value of the field.
+        kmin : float, optional
+            The lower wavenumber bound of the integral. Default is 0.0.
+        kmax : float, optional
+            The upper wavenumber bound of the integral. Default is 100.0.
+        """
         self.norm = f_rms**2 / self.integrate_E(kmin, kmax)
 
 
@@ -62,6 +122,27 @@ class PowerLaw(PowerSpectrum):
 
 
 class DoublePowerLaw(PowerSpectrum):
+    """
+    Smoothly broken power-law power spectrum: index alpha_lo at large
+    scales (k below the break wavenumber 2*pi/l_break), transitioning to
+    index alpha_hi at small scales (k above the break wavenumber).
+
+    Parameters
+    ----------
+    alpha_lo : float
+        Power-law index at large scales (low k).
+    alpha_hi : float
+        Power-law index at small scales (high k).
+    l_break : float
+        The break scale (wavelength) separating the two power-law
+        regimes.
+    delta : float, optional
+        Controls the width of the transition region between the two
+        power-law regimes. Default is 2.0.
+    ndim : int, optional
+        Number of dimensions (1, 2, or 3). Default is 3.
+    """
+
     def __init__(self, alpha_lo, alpha_hi, l_break, delta=2.0, ndim=3):
         self.alpha_lo = alpha_lo
         self.alpha_hi = alpha_hi
