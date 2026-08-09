@@ -58,5 +58,10 @@ html_theme = "pydata_sphinx_theme"
 html_theme_options = {
     "github_url": "https://github.com/jzuhone/field_kit",
     "show_toc_level": 2,
+    "logo": {
+        "image_light": "_static/logo-icon.svg",
+        "image_dark": "_static/logo-icon.svg",
+    },
 }
-html_static_path = []
+html_favicon = "_static/favicon.ico"
+html_static_path = ["_static"]

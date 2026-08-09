@@ -1,4 +1,4 @@
-# field_kit
+<img src="docs/_static/logo.svg" alt="field_kit" height="72">
 
 Tools for generating and analyzing Gaussian random fields (GRFs) and their
 power spectra on regular grids, in 1, 2, or 3 dimensions. Built for
