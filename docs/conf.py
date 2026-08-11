@@ -61,6 +61,7 @@ html_theme_options = {
     "logo": {
         "image_light": "_static/logo-icon.svg",
         "image_dark": "_static/logo-icon.svg",
+        "text": f"kspace {version}",
     },
 }
 html_favicon = "_static/favicon.ico"
