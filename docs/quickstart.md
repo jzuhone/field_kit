@@ -55,6 +55,28 @@ Plotting `measured` and `expected` against `k_centers` on a log-log axis
 should show good agreement away from the largest and smallest scales
 (where the finite grid and box size limit the achievable dynamic range).
 
+## Forward and inverse FFTs
+
+`fa` above already wraps the FFT machinery used internally by
+`make_binned_powerspec`; you can also call it directly. `fftn`/`ifftn`
+aren't drop-in replacements for `scipy.fft`'s functions of the same name —
+they use the $k = 2\pi f$ convention and normalize by the cell volume `dV`
+(see {doc}`conventions`), and `ifftn` requires its input to be the
+`FFTArray` that `fftn` returns, not a plain array:
+
+```python
+# Forward transform: a real-space field -> an FFTArray in Fourier space
+field_hat = fa.fftn(field)
+
+# Inverse transform: exact inverse of fftn, back to real space
+field_recovered = fa.ifftn(field_hat)
+
+np.allclose(field, field_recovered)  # True
+```
+
+`fftn` also accepts vector fields, of shape `(ndim, *ddims)`, transforming
+each component along the spatial axes.
+
 ## Vector fields
 
 ```python
@@ -64,6 +86,28 @@ vfield = grf.generate_vector_field_realization()
 # Or a divergence-free ("solenoidal") one
 vfield_solenoidal = grf.generate_vector_field_realization(divergence_free=True)
 ```
+
+## Divergence and curl
+
+`FourierAnalysis.divergence_of_field`/`curl_of_field` compute these in real
+space via finite differences. Since `vfield` came from an FFT-based
+realization, its domain is periodic, so pass `periodic=True` to use
+wraparound (rather than one-sided) differences at the box edges:
+
+```python
+div_v = fa.divergence_of_field(vfield, periodic=True)
+curl_v = fa.curl_of_field(vfield, periodic=True)
+
+# vfield_solenoidal was constructed to be divergence-free, so this should
+# be close to zero everywhere (up to finite-difference truncation error)
+div_v_solenoidal = fa.divergence_of_field(vfield_solenoidal, periodic=True)
+```
+
+There are also spectral counterparts, `divergence_component`/
+`solenoidal_component`, which project a vector field into its compressional
+and solenoidal parts in Fourier space rather than differentiating in real
+space — see {doc}`conventions` for how they relate to `divergence_of_field`/
+`curl_of_field` and the choice of wavenumber (`diff_type`) they use.
 
 See {doc}`conventions` for the Fourier conventions this package uses, and
 {doc}`tutorials/index` for complete, runnable examples.

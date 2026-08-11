@@ -20,6 +20,38 @@ feed into {class}`~field_kit.FourierAnalysis` methods, make sure they use
 this same convention — mixing $k$ and $f$ conventions will silently give
 wrong amplitudes and mode locations.
 
+## Normal vs. modified wavenumbers
+
+Most of `field_kit` — power spectra, `fftn`/`ifftn`, GRF generation — works
+with the "normal" wavenumbers described above: the exact FFT frequencies
+scaled by $2\pi$, with no dependence on how a derivative might be
+discretized.
+
+A few methods that compute spatial derivatives spectrally (divergence,
+curl, vector potentials — see
+{meth}`~field_kit.FourierAnalysis.generate_waves` and the `diff_type`
+argument below) instead offer **modified** wavenumbers: $k$ values altered
+so that multiplying by $ik$ in Fourier space reproduces a specific
+real-space finite-difference stencil exactly, rather than the exact
+spectral derivative. `field_kit` calls this choice `diff_type`:
+
+- `"continuum"`: the normal, unmodified FFT wavenumbers — an exact
+  spectral derivative.
+- `"central"`: wavenumbers rescaled to $\sin(k\,dx)/dx$, matching a
+  periodic central-difference stencil.
+- `"forward"`: wavenumbers rescaled to a (complex-valued) periodic
+  forward-difference stencil.
+
+Modified wavenumbers exist so that a spectral derivative can be made to
+agree with a real-space finite-difference calculation done elsewhere in a
+pipeline (e.g. on a simulation grid); reach for `"continuum"` unless you
+specifically need that agreement. See
+[Vector potentials and curl inversion](#vector-potentials-and-curl-inversion)
+below for the full set of caveats
+ — in particular, `"forward"` wavenumbers
+are complex and change which dot product (`k·k` vs. `k·k̄`) is correct in
+downstream formulas.
+
 ## FFT normalization
 
 {meth}`FourierAnalysis.fftn() <field_kit.FourierAnalysis.fftn>` and
@@ -43,6 +75,67 @@ that carries the grid spacing (`delta`) as metadata, produced by
 `TypeError` on a plain array, so that operations aren't silently applied to
 data on an incompatible grid.
 
+(power-energy-and-amplitude-spectra)=
+## Power, energy, and amplitude spectra
+
+A {class}`~field_kit.PowerSpectrum` (`PowerLaw`, `PowerLawBetaModel`,
+`DoublePowerLaw`) parametrizes the isotropic power spectrum $P(k)$
+directly: calling `power_spec(k)` evaluates $P(k)$. Two related spectra are
+also available, and both depend on `ndim` ($d$) because they involve
+integrating $P(k)$ over the surface of a $k$-space sphere of radius $k$:
+
+- {meth}`~field_kit.PowerSpectrum.E` — the **energy spectrum**, $P(k)$
+  integrated over that shell, so that $\int E(k)\,dk$ over some range of
+  $k$ gives the variance contributed by that range of scales:
+
+  $$
+  E(k) = \frac{1}{(2\pi)^d} \times
+  \begin{cases}
+    P(k) & d = 1 \\
+    2\pi k\, P(k) & d = 2 \\
+    4\pi k^2\, P(k) & d = 3
+  \end{cases}
+  $$
+
+  The $2\pi k$ and $4\pi k^2$ factors are the circumference/surface area of
+  the shell (in 1D the "shell" is just the two points $\pm k$, so there's no
+  extra geometric factor). {meth}`~field_kit.PowerSpectrum.renormalize`
+  uses this: it rescales $P(k)$'s normalization so that
+  $\int E(k)\,dk = f_{\rm rms}^2$ over the requested range.
+- {meth}`~field_kit.PowerSpectrum.A` — the **amplitude spectrum**,
+  $A(k) = \sqrt{E(k)\,k}$, the Fourier amplitude associated with
+  wavenumber $k$.
+
+$P(k)$ — not $E(k)$ or $A(k)$ — is the quantity that
+{meth}`~field_kit.FourierAnalysis.make_binned_powerspec` recovers from a
+field realization; see the next section.
+
+(gridded-vs-binned-power-spectra)=
+## Gridded vs. binned power spectra
+
+{meth}`~field_kit.FourierAnalysis.make_powerspec` and
+{meth}`~field_kit.FourierAnalysis.make_binned_powerspec` both compute a
+power spectrum from a field, but at different levels of reduction:
+
+- `make_powerspec(data)` returns
+  $P(\mathbf{k}) = |\hat{f}(\mathbf{k})|^2 / V$ on the full Fourier grid —
+  one value per discrete mode $\mathbf{k}$, as an `FFTArray` of the same
+  shape as the (transformed) input. It makes no isotropy assumption, so
+  it's the right starting point if you need per-mode or directional power
+  rather than a single curve — {meth}`~field_kit.FourierAnalysis.make_binned_powerspec`
+  and {meth}`~field_kit.FourierAnalysis.integrate_kspace`-based
+  calculations both build on it.
+- `make_binned_powerspec(data, bins)` calls `make_powerspec` internally,
+  then histograms the gridded values by $|\mathbf{k}|$ into 1-D bins,
+  averaging over all modes in each shell — i.e. it assumes isotropy. The
+  result is directly comparable to `power_spec(k)` on a `PowerSpectrum`
+  instance (see
+  [Power, energy, and amplitude spectra](#power-energy-and-amplitude-spectra)
+  above), which is exactly $P(k)$, not $E(k)$ or $A(k)$ — as in the
+  {doc}`quickstart` power-spectrum-recovery example. Bins with no grid
+  modes in range come back masked (`numpy.ma.masked_invalid`) rather than
+  as `0` or `NaN`.
+
 ## Divergence-free vector fields
 
 `generate_vector_field_realization(divergence_free=True)` projects out the
@@ -56,6 +149,7 @@ then rescales the result by $\sqrt{n/(n-1)}$ ($n$ = 2 or 3 dimensions) to
 restore the per-component power lost by the projection, so the transverse
 field still has the same power spectrum $P(k)$ as an unprojected component.
 
+(vector-potentials-and-curl-inversion)=
 ## Vector potentials and curl inversion
 
 Given a divergence-free vector field $\mathbf{B}$,

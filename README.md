@@ -1,4 +1,4 @@
-<img src="docs/_static/logo.svg" alt="field_kit" height="72">
+<img src="https://raw.githubusercontent.com/jzuhone/field_kit/main/docs/_static/logo.svg" alt="field_kit" height="72">
 
 Tools for generating and analyzing Gaussian random fields (GRFs) and their
 power spectra on regular grids, in 1, 2, or 3 dimensions. Built for
@@ -49,6 +49,6 @@ fa = FourierAnalysis(re - le, ddims)
 kbins, pk = fa.make_binned_powerspec(field, nbins=60)
 ```
 
-See `examples/` for more complete, runnable notebooks (GRF generation,
+See `docs/examples/` for more complete, runnable notebooks (GRF generation,
 vector field decomposition, power spectrum estimation, and analysis of
 simulation data).
