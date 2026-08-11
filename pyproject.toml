@@ -32,6 +32,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/jzuhone/kspace"
+Documentation = "https://jzuhone.github.io/kspace/"
 Repository = "https://github.com/jzuhone/kspace"
 Issues = "https://github.com/jzuhone/kspace/issues"
 

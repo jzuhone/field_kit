@@ -1,5 +1,7 @@
 <img src="https://raw.githubusercontent.com/jzuhone/kspace/main/docs/_static/logo.svg" alt="kspace" height="72">
 
+**[Documentation](https://jzuhone.github.io/kspace/)**
+
 Tools for generating and analyzing Gaussian random fields (GRFs) and their
 power spectra on regular grids, in 1, 2, or 3 dimensions. Built for
 astrophysical/cosmological applications where fields are specified by a
