@@ -1,9 +1,9 @@
 from importlib.metadata import version as _pkg_version
 
-project = "field_kit"
+project = "kspace"
 copyright = "2026, John ZuHone"
 author = "John ZuHone"
-version = _pkg_version("field-kit")
+version = _pkg_version("kspace")
 release = version
 
 extensions = [
@@ -56,7 +56,7 @@ intersphinx_mapping = {
 
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
-    "github_url": "https://github.com/jzuhone/field_kit",
+    "github_url": "https://github.com/jzuhone/kspace",
     "show_toc_level": 2,
     "logo": {
         "image_light": "_static/logo-icon.svg",

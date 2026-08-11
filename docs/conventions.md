@@ -1,6 +1,6 @@
 # Conventions
 
-`field_kit` makes a few specific choices about Fourier conventions and grid
+`kspace` makes a few specific choices about Fourier conventions and grid
 layout that matter if you're combining its output with your own FFT code,
 or extending the package itself.
 
@@ -16,24 +16,24 @@ k = 2 * np.pi * np.fft.fftfreq(n, d=delta)
 
 and correspondingly `dk = 2π / width` for the spacing between discrete
 wavenumbers in a box of a given `width`. If you generate your own arrays to
-feed into {class}`~field_kit.FourierAnalysis` methods, make sure they use
+feed into {class}`~kspace.FourierAnalysis` methods, make sure they use
 this same convention — mixing $k$ and $f$ conventions will silently give
 wrong amplitudes and mode locations.
 
 ## Normal vs. modified wavenumbers
 
-Most of `field_kit` — power spectra, `fftn`/`ifftn`, GRF generation — works
+Most of `kspace` — power spectra, `fftn`/`ifftn`, GRF generation — works
 with the "normal" wavenumbers described above: the exact FFT frequencies
 scaled by $2\pi$, with no dependence on how a derivative might be
 discretized.
 
 A few methods that compute spatial derivatives spectrally (divergence,
 curl, vector potentials — see
-{meth}`~field_kit.FourierAnalysis.generate_waves` and the `diff_type`
+{meth}`~kspace.FourierAnalysis.generate_waves` and the `diff_type`
 argument below) instead offer **modified** wavenumbers: $k$ values altered
 so that multiplying by $ik$ in Fourier space reproduces a specific
 real-space finite-difference stencil exactly, rather than the exact
-spectral derivative. `field_kit` calls this choice `diff_type`:
+spectral derivative. `kspace` calls this choice `diff_type`:
 
 - `"continuum"`: the normal, unmodified FFT wavenumbers — an exact
   spectral derivative.
@@ -54,8 +54,8 @@ downstream formulas.
 
 ## FFT normalization
 
-{meth}`FourierAnalysis.fftn() <field_kit.FourierAnalysis.fftn>` and
-{meth}`~field_kit.FourierAnalysis.ifftn` don't use `scipy.fft`'s default
+{meth}`FourierAnalysis.fftn() <kspace.FourierAnalysis.fftn>` and
+{meth}`~kspace.FourierAnalysis.ifftn` don't use `scipy.fft`'s default
 normalization. They multiply/divide by the cell volume `dV` so that the
 discrete transform approximates a continuum Fourier transform:
 
@@ -68,7 +68,7 @@ data — the amplitudes won't match.
 
 ## `FFTArray`
 
-{class}`~field_kit.fourier_analysis.FFTArray` is a thin `ndarray` subclass
+{class}`~kspace.fourier_analysis.FFTArray` is a thin `ndarray` subclass
 that carries the grid spacing (`delta`) as metadata, produced by
 `fftn`/`make_powerspec`/etc. Some `FourierAnalysis` methods (`ifftn`,
 `integrate_kspace`) require an `FFTArray` specifically and will raise
@@ -78,13 +78,13 @@ data on an incompatible grid.
 (power-energy-and-amplitude-spectra)=
 ## Power, energy, and amplitude spectra
 
-A {class}`~field_kit.PowerSpectrum` (`PowerLaw`, `PowerLawBetaModel`,
+A {class}`~kspace.PowerSpectrum` (`PowerLaw`, `PowerLawBetaModel`,
 `DoublePowerLaw`) parametrizes the isotropic power spectrum $P(k)$
 directly: calling `power_spec(k)` evaluates $P(k)$. Two related spectra are
 also available, and both depend on `ndim` ($d$) because they involve
 integrating $P(k)$ over the surface of a $k$-space sphere of radius $k$:
 
-- {meth}`~field_kit.PowerSpectrum.E` — the **energy spectrum**, $P(k)$
+- {meth}`~kspace.PowerSpectrum.E` — the **energy spectrum**, $P(k)$
   integrated over that shell, so that $\int E(k)\,dk$ over some range of
   $k$ gives the variance contributed by that range of scales:
 
@@ -99,22 +99,22 @@ integrating $P(k)$ over the surface of a $k$-space sphere of radius $k$:
 
   The $2\pi k$ and $4\pi k^2$ factors are the circumference/surface area of
   the shell (in 1D the "shell" is just the two points $\pm k$, so there's no
-  extra geometric factor). {meth}`~field_kit.PowerSpectrum.renormalize`
+  extra geometric factor). {meth}`~kspace.PowerSpectrum.renormalize`
   uses this: it rescales $P(k)$'s normalization so that
   $\int E(k)\,dk = f_{\rm rms}^2$ over the requested range.
-- {meth}`~field_kit.PowerSpectrum.A` — the **amplitude spectrum**,
+- {meth}`~kspace.PowerSpectrum.A` — the **amplitude spectrum**,
   $A(k) = \sqrt{E(k)\,k}$, the Fourier amplitude associated with
   wavenumber $k$.
 
 $P(k)$ — not $E(k)$ or $A(k)$ — is the quantity that
-{meth}`~field_kit.FourierAnalysis.make_binned_powerspec` recovers from a
+{meth}`~kspace.FourierAnalysis.make_binned_powerspec` recovers from a
 field realization; see the next section.
 
 (gridded-vs-binned-power-spectra)=
 ## Gridded vs. binned power spectra
 
-{meth}`~field_kit.FourierAnalysis.make_powerspec` and
-{meth}`~field_kit.FourierAnalysis.make_binned_powerspec` both compute a
+{meth}`~kspace.FourierAnalysis.make_powerspec` and
+{meth}`~kspace.FourierAnalysis.make_binned_powerspec` both compute a
 power spectrum from a field, but at different levels of reduction:
 
 - `make_powerspec(data)` returns
@@ -122,8 +122,8 @@ power spectrum from a field, but at different levels of reduction:
   one value per discrete mode $\mathbf{k}$, as an `FFTArray` of the same
   shape as the (transformed) input. It makes no isotropy assumption, so
   it's the right starting point if you need per-mode or directional power
-  rather than a single curve — {meth}`~field_kit.FourierAnalysis.make_binned_powerspec`
-  and {meth}`~field_kit.FourierAnalysis.integrate_kspace`-based
+  rather than a single curve — {meth}`~kspace.FourierAnalysis.make_binned_powerspec`
+  and {meth}`~kspace.FourierAnalysis.integrate_kspace`-based
   calculations both build on it.
 - `make_binned_powerspec(data, bins)` calls `make_powerspec` internally,
   then histograms the gridded values by $|\mathbf{k}|$ into 1-D bins,
@@ -153,7 +153,7 @@ field still has the same power spectrum $P(k)$ as an unprojected component.
 ## Vector potentials and curl inversion
 
 Given a divergence-free vector field $\mathbf{B}$,
-{meth}`~field_kit.FourierAnalysis.potential_of_field` recovers a vector
+{meth}`~kspace.FourierAnalysis.potential_of_field` recovers a vector
 potential $\mathbf{A}$ with $\mathbf{B} = \nabla \times \mathbf{A}$ in the
 Coulomb gauge ($\nabla \cdot \mathbf{A} = 0$), using
 
@@ -165,14 +165,14 @@ In 2D, $\mathbf{k}$ and $\hat{\mathbf{B}}$ are both 2-vectors, so their cross
 product collapses to a scalar — $\mathbf{A}$ is just that out-of-plane
 component.
 
-This inversion, and the corresponding {meth}`~field_kit.FourierAnalysis.curl_of_field`
-/ {meth}`~field_kit.FourierAnalysis.divergence_component`, accept a
+This inversion, and the corresponding {meth}`~kspace.FourierAnalysis.curl_of_field`
+/ {meth}`~kspace.FourierAnalysis.divergence_component`, accept a
 `diff_type` argument selecting which wavenumbers to use in the underlying
-formula (see {meth}`~field_kit.FourierAnalysis.generate_waves`):
+formula (see {meth}`~kspace.FourierAnalysis.generate_waves`):
 
 - `"continuum"` (default): the exact FFT wavenumbers. This is the exact
   algebraic inverse of a curl computed the same way — *not* of
-  {meth}`~field_kit.FourierAnalysis.curl_of_field`, which differentiates in
+  {meth}`~kspace.FourierAnalysis.curl_of_field`, which differentiates in
   real space via `numpy.gradient` and only agrees with the spectral result
   at low $k$.
 - `"central"`: wavenumbers modified to match a real-space central-difference

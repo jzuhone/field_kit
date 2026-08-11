@@ -1,6 +1,6 @@
-from field_kit.fourier_analysis import FourierAnalysis
-from field_kit.gaussian_random_field import GaussianRandomField
-from field_kit.power_spectra import (
+from kspace.fourier_analysis import FourierAnalysis
+from kspace.gaussian_random_field import GaussianRandomField
+from kspace.power_spectra import (
     DoublePowerLaw,
     PowerLaw,
     PowerLawBetaModel,

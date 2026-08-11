@@ -1,6 +1,6 @@
 import numpy as np
 
-from field_kit.constants import sqrt2, two_pi
+from kspace.constants import sqrt2, two_pi
 
 
 def test_two_pi():

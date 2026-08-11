@@ -1,6 +1,6 @@
 import numpy as np
 
-from field_kit import PowerLaw, PowerLawBetaModel
+from kspace import PowerLaw, PowerLawBetaModel
 
 
 def test_power_law_renormalize():

@@ -3,7 +3,7 @@
 ## Fields
 
 ```{eval-rst}
-.. currentmodule:: field_kit
+.. currentmodule:: kspace
 
 .. autosummary::
    :toctree: generated
@@ -16,7 +16,7 @@
 ## Power spectra
 
 ```{eval-rst}
-.. currentmodule:: field_kit
+.. currentmodule:: kspace
 
 .. autosummary::
    :toctree: generated
@@ -30,7 +30,7 @@
 ## Fourier analysis
 
 ```{eval-rst}
-.. currentmodule:: field_kit
+.. currentmodule:: kspace
 
 .. autosummary::
    :toctree: generated

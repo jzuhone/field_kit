@@ -1,6 +1,6 @@
 # Tutorials
 
-These notebooks walk through `field_kit` usage end-to-end.
+These notebooks walk through `kspace` usage end-to-end.
 
 ```{toctree}
 :maxdepth: 1
@@ -23,4 +23,4 @@ Computing a Power Spectrum from a Hydrodynamic Simulation <../examples/sim_examp
   the analytic integral.
 - **[Computing a Power Spectrum from a Hydrodynamic Simulation](../examples/sim_example)** —
   load a `yt` sample dataset, extract a uniform-grid field, and compute its
-  power spectrum with {class}`~field_kit.FourierAnalysis`.
+  power spectrum with {class}`~kspace.FourierAnalysis`.

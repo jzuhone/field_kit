@@ -1,6 +1,6 @@
 import numpy as np
 
-from field_kit import GaussianRandomField, PowerLawBetaModel
+from kspace import GaussianRandomField, PowerLawBetaModel
 
 
 def _make_field(ndim, seed=10):

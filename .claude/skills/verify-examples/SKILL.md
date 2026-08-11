@@ -1,6 +1,6 @@
 ---
 name: verify-examples
-description: Execute the example notebooks in examples/ headlessly to check that changes to field_kit internals haven't broken them. User-triggered only (not auto-invoked) since it may download simulation data and can be slow.
+description: Execute the example notebooks in examples/ headlessly to check that changes to kspace internals haven't broken them. User-triggered only (not auto-invoked) since it may download simulation data and can be slow.
 disable-model-invocation: true
 ---
 
@@ -23,5 +23,5 @@ Notes:
   data via `pooch`/`yt` on first run — this can take a while and requires
   network access.
 - If a notebook fails, check first whether it's a real regression in
-  `field_kit/` vs. a stale/outdated notebook (e.g. referencing a renamed
+  `kspace/` vs. a stale/outdated notebook (e.g. referencing a renamed
   function or removed argument) before treating it as a bug in the library.

@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" role="img" aria-label="field_kit">
-  <title>field_kit</title>
-  <rect width="420" height="120" rx="22" fill="#0F1720"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120" role="img" aria-label="kspace">
+  <title>kspace</title>
+  <rect width="330" height="120" rx="22" fill="#0F1720"/>
   <path d="M14,44 C30,34 44,34 56,40 C74,49 88,68 108,92"
         fill="none" stroke="#D08A4A" stroke-width="7"
         stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="56" cy="40" r="5.5" fill="#F2B368"/>
   <text x="148" y="75" font-family="ui-monospace, SFMono-Regular, 'Cascadia Code', 'JetBrains Mono', Consolas, 'Roboto Mono', monospace"
-        font-size="42" font-weight="600" fill="#ECE7DD">field_kit</text>
+        font-size="42" font-weight="600" fill="#ECE7DD">kspace</text>
 </svg>

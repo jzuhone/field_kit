@@ -7,7 +7,7 @@ check that the two match.
 ## Define a power spectrum
 
 ```python
-from field_kit import PowerLawBetaModel
+from kspace import PowerLawBetaModel
 
 # A power-law power spectrum with large- and small-scale cutoffs:
 #   l_min, l_max set the cutoff scales; alpha is the power-law index.
@@ -25,7 +25,7 @@ package targets, but nothing enforces that).
 
 ```python
 import numpy as np
-from field_kit import GaussianRandomField
+from kspace import GaussianRandomField
 
 left_edge = np.array([0.0, 0.0, 0.0])
 right_edge = np.array([750.0, 750.0, 750.0])
@@ -40,7 +40,7 @@ field = grf.generate_scalar_field_realization()
 ## Recover and check the power spectrum
 
 ```python
-from field_kit import FourierAnalysis
+from kspace import FourierAnalysis
 
 fa = FourierAnalysis(right_edge - left_edge, ddims)
 kbins, pk = fa.make_binned_powerspec(field, nbins=60)

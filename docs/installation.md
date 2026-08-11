@@ -1,6 +1,12 @@
 # Installation
 
-`field_kit` uses [uv](https://docs.astral.sh/uv/) for dependency management.
+```bash
+pip install kspace
+```
+
+## Developing `kspace`
+
+`kspace` uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
 uv sync
@@ -16,7 +22,7 @@ uv sync --group docs
 
 The same dependency group also includes everything needed to build this
 documentation site (see {doc}`conventions` for the underlying assumptions
-`field_kit` makes about grids and Fourier conventions before diving into
+`kspace` makes about grids and Fourier conventions before diving into
 the API).
 
 ## Building the documentation locally

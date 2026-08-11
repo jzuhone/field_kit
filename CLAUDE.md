@@ -8,7 +8,7 @@ A small Python library for generating Gaussian random fields (GRFs) with a
 specified power spectrum and analyzing fields via FFT-based power spectra,
 divergence/curl, and windowing — in 1, 2, or 3 dimensions. Used for
 astrophysical/cosmological applications (docstrings use kpc for grid
-coordinates). Core package: `field_kit/` (flat layout, no subpackages):
+coordinates). Core package: `kspace/` (flat layout, no subpackages):
 `base_field.py`, `gaussian_random_field.py`, `power_spectra.py`,
 `fourier_analysis.py`, `utils.py`, `constants.py`.
 
@@ -18,8 +18,8 @@ coordinates). Core package: `field_kit/` (flat layout, no subpackages):
   `examples/` notebooks and the documentation build: matplotlib, pandas, yt,
   h5py, pooch, sphinx, myst-nb, pydata-sphinx-theme)
 - Run tests: `uv run pytest`
-- Lint: `uv run ruff check field_kit/`
-- Format: `uv run ruff format field_kit/`
+- Lint: `uv run ruff check kspace/`
+- Format: `uv run ruff format kspace/`
 - Build docs: `uv run --group docs sphinx-build -b html docs docs/_build/html`
 
 ## Conventions and gotchas
@@ -48,7 +48,7 @@ coordinates). Core package: `field_kit/` (flat layout, no subpackages):
   individual functions unless asked.
 - `examples/*.ipynb` are illustrative, manually-run notebooks (not executed
   in CI/tests). Use `/verify-examples` to run them headlessly after changes
-  that touch `field_kit/` internals.
+  that touch `kspace/` internals.
 - `examples/*.ipynb` are also rendered as tutorial pages in `docs/` (via a
   `docs/examples -> ../examples` symlink and `nb_execution_mode = "off"` in
   `docs/conf.py`, so the doc build uses each notebook's saved outputs rather

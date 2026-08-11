@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="field_kit">
-  <title>field_kit</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="kspace">
+  <title>kspace</title>
   <rect width="120" height="120" rx="22" fill="#0F1720"/>
   <path d="M14,44 C30,34 44,34 56,40 C74,49 88,68 108,92"
         fill="none" stroke="#D08A4A" stroke-width="7"

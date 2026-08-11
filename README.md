@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/jzuhone/field_kit/main/docs/_static/logo.svg" alt="field_kit" height="72">
+<img src="https://raw.githubusercontent.com/jzuhone/kspace/main/docs/_static/logo.svg" alt="kspace" height="72">
 
 Tools for generating and analyzing Gaussian random fields (GRFs) and their
 power spectra on regular grids, in 1, 2, or 3 dimensions. Built for
@@ -18,6 +18,12 @@ Features:
 ## Install
 
 ```bash
+pip install kspace
+```
+
+For development, clone the repo and use [uv](https://docs.astral.sh/uv/):
+
+```bash
 uv sync
 ```
 
@@ -32,7 +38,7 @@ uv sync --group docs
 
 ```python
 import numpy as np
-from field_kit import GaussianRandomField, FourierAnalysis, PowerLawBetaModel
+from kspace import GaussianRandomField, FourierAnalysis, PowerLawBetaModel
 
 # A power-law power spectrum with large- and small-scale cutoffs
 power_spec = PowerLawBetaModel(l_min=10.0, l_max=200.0, alpha=-11.0 / 3.0)

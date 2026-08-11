@@ -1,7 +1,7 @@
 import numpy as np
 
-from field_kit import FourierAnalysis, GaussianRandomField, PowerLawBetaModel
-from field_kit.fourier_analysis import FFTArray
+from kspace import FourierAnalysis, GaussianRandomField, PowerLawBetaModel
+from kspace.fourier_analysis import FFTArray
 
 
 def _spectral_curl(fa, a_real):
